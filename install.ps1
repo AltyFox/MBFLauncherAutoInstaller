@@ -1,7 +1,3 @@
-param(
-    [switch]$Silent
-)
-
 Write-Host "Starting the MBF Launcher installer script." -ForegroundColor Green
 
 add-type -name user32 -namespace win32 -memberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);'
@@ -56,39 +52,9 @@ $form.Controls.Add($startButton)
 
 
 
-# Only show the prompt if -Silent is NOT provided
-if (-not $Silent) {
-    $adminWarning = [System.Windows.Forms.MessageBox]::Show(
-        "Before you begin, this application will request admin privileges if you have not already granted them.`n`n" +
-        "You may see a prompt to allow admin privledges to Windows PowerShell.  Grant the permissions or this application won't be able to install the nessecary drivers.`n`n" +
-        "Ensure that no other applications on your headset are open.",
-        "Administrator Privileges Required",
-        [System.Windows.Forms.MessageBoxButtons]::OKCancel,
-        [System.Windows.Forms.MessageBoxIcon]::Warning
-    )
-
-    # Exit if user clicks 'Cancel'
-    if ($adminWarning -ne [System.Windows.Forms.DialogResult]::OK) {
-        exit
-    }
-}
 
 
 
-
-
-
-Function Elevate-Script {
-    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {        
-        $tempPath = [System.IO.Path]::GetTempFileName()
-        $tempScript = "$tempPath.ps1"
-        Invoke-WebRequest -Uri "https://bsquest.xyz/mbflauncher" -OutFile $tempScript
-        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`" -Silent" -Verb RunAs
-        exit
-    }
-}
-
-Elevate-Script
 
 
 # Helper function for logging
@@ -162,8 +128,9 @@ $startButton.Add_Click({
     Log-Message "Extraction completed."
     
     Log-Message "Installing USB driver from android_winusb.inf"
+    Log-Message "This requires Admin privledges.  You may see a prompt.  Accept it."
     $infPath = "$tempDir\AndroidUSB\android_winusb.inf"
-    pnputil /add-driver $infPath /install
+    Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs
     Log-Message "USB driver installed successfully."
     
     Log-Message "Checking if adb.exe is available..."
