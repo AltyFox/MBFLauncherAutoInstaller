@@ -2,40 +2,100 @@ param(
     [switch]$Silent
 )
 
+add-type -name user32 -namespace win32 -memberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);'
+$consoleHandle = (get-process -id $pid).mainWindowHandle
+
+# load your form or whatever ...
+
+# hide console
+[win32.user32]::showWindow($consoleHandle, 0)
+
+Add-Type -AssemblyName System.Windows.Forms
+
+# Create Form
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "MBF Launcher Installer"
+$form.Size = New-Object System.Drawing.Size(800,500)
+$form.StartPosition = "CenterScreen"
+
+# Create Label
+$label = New-Object System.Windows.Forms.Label
+$label.Location = New-Object System.Drawing.Point(10,10)
+$label.Size = New-Object System.Drawing.Size(760,50)
+$label.Font = New-Object System.Drawing.Font("Arial",14,[System.Drawing.FontStyle]::Bold)
+$label.Text = "Welcome to the MBF Launcher Installer. Click 'Start' to begin."
+$form.Controls.Add($label)
+
+# Create TextBox for output
+$outputBox = New-Object System.Windows.Forms.TextBox
+$outputBox.Multiline = $true
+$outputBox.ScrollBars = "Vertical"
+$outputBox.Location = New-Object System.Drawing.Point(10,70)
+$outputBox.Size = New-Object System.Drawing.Size(760,280)
+$outputBox.Font = New-Object System.Drawing.Font("Consolas",12,[System.Drawing.FontStyle]::Regular)
+$form.Controls.Add($outputBox)
+
+# Create Progress Bar
+$progressBar = New-Object System.Windows.Forms.ProgressBar
+$progressBar.Location = New-Object System.Drawing.Point(10, 360)
+$progressBar.Size = New-Object System.Drawing.Size(760, 25)
+$progressBar.Style = "Continuous"
+$progressBar.Visible = $false
+$form.Controls.Add($progressBar)
+
+# Create Start Button
+$startButton = New-Object System.Windows.Forms.Button
+$startButton.Location = New-Object System.Drawing.Point(10,400)
+$startButton.Size = New-Object System.Drawing.Size(100,40)
+$startButton.Text = "Start"
+$form.Controls.Add($startButton)
+
+
+
+
+
 # Only show the prompt if -Silent is NOT provided
 if (-not $Silent) {
-    Write-Host "`n============================================================" -ForegroundColor Yellow
-    Write-Host "Before you begin, this application will request admin privileges" -ForegroundColor Cyan
-    Write-Host "if you have not already granted them." -ForegroundColor Cyan
-    Write-Host "`nYou will need to grant `"PowerShell`" administrator privileges." -ForegroundColor Green
-    Write-Host "This is required to install the necessary driver." -ForegroundColor Green
-    Write-Host "`nEnsure that no other applications on your headset are open." -ForegroundColor Magenta
-    Write-Host "============================================================`n" -ForegroundColor Yellow
+    $adminWarning = [System.Windows.Forms.MessageBox]::Show(
+        "Before you begin, this application will request admin privileges if you have not already granted them.`n`n" +
+        "You will need to grant 'PowerShell' administrator privileges. This is required to install the necessary driver.`n`n" +
+        "Ensure that no other applications on your headset are open.",
+        "Administrator Privileges Required",
+        [System.Windows.Forms.MessageBoxButtons]::OKCancel,
+        [System.Windows.Forms.MessageBoxIcon]::Warning
+    )
 
-    do {
-        $response = Read-Host "Do you understand? (y/n)"
-    } while ($response -notmatch "^[yY]$")
-
-    Write-Host "`n[INFO]: Proceeding with the installation..." -ForegroundColor Green
+    # Exit if user clicks 'Cancel'
+    if ($adminWarning -ne [System.Windows.Forms.DialogResult]::OK) {
+        exit
+    }
 }
 
-# Function to elevate the script with admin privileges
+
+
+
 Function Elevate-Script {
-    Write-Host "[INFO]: Checking for Administrator privileges..." -ForegroundColor Cyan
-    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-        Write-Host "[INFO]: Script is not running as Administrator. Restarting with elevated privileges..." -ForegroundColor Cyan
-        
+    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {        
         $tempPath = [System.IO.Path]::GetTempFileName()
         $tempScript = "$tempPath.ps1"
         Invoke-WebRequest -Uri "https://bsquest.xyz/mbflauncher" -OutFile $tempScript
-        
         Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`" -Silent" -Verb RunAs
-        
         exit
     }
 }
 
 Elevate-Script
+
+
+# Helper function for logging
+Function Log-Message($message) {
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    $outputBox.AppendText("`r`n[$timestamp] $message")
+    $outputBox.ScrollToCaret()
+}
+
+# Function to download a file with progress
+
 
 function DownloadFile($url, $targetFile)
 {
@@ -46,25 +106,36 @@ function DownloadFile($url, $targetFile)
    $totalLength = [System.Math]::Floor($response.get_ContentLength()/1024)
    $responseStream = $response.GetResponseStream()
    $targetStream = New-Object -TypeName System.IO.FileStream -ArgumentList $targetFile, Create
-   $buffer = new-object byte[] 10KB
-   $count = $responseStream.Read($buffer,0,$buffer.length)
+   $buffer = New-Object byte[] 10240  # 10KB buffer
+   $count = $responseStream.Read($buffer, 0, $buffer.length)
    $downloadedBytes = $count
-   
-   $fileName = $url.Split('/') | Select -Last 1
-   Write-Host "Downloading file: $fileName ($totalLength KB)"
-   
+
+   # Ensure progress bar exists before modifying it
+   if ($progressBar -ne $null) {
+       $progressBar.Visible = $true
+       $progressBar.Value = 0
+   }
+
    while ($count -gt 0)
    {
        $targetStream.Write($buffer, 0, $count)
-       $count = $responseStream.Read($buffer,0,$buffer.length)
+       $count = $responseStream.Read($buffer, 0, $buffer.length)
        $downloadedBytes += $count
-       
-       $percentComplete = ([System.Math]::Floor($downloadedBytes/1024) / $totalLength) * 100
-       Write-Host -NoNewline "`rProgress: $([System.Math]::Floor($downloadedBytes/1024)) KB / $totalLength KB ($([System.Math]::Floor($percentComplete))%)   "
+
+       # Update progress bar
+       if ($progressBar -ne $null -and $totalLength -gt 0) {
+           $progressBar.Value = [System.Math]::Min(100, ([System.Math]::Floor($downloadedBytes/1024) / $totalLength) * 100)
+       }
    }
-   
-   Write-Host "`nDownload complete: $fileName"
-   
+
+   # Hide progress bar after completion
+   if ($progressBar -ne $null) {
+       $progressBar.Value = 100
+       Start-Sleep -Milliseconds 500  # Brief delay for UI update
+       $progressBar.Visible = $false
+   }
+
+   # Cleanup
    $targetStream.Flush()
    $targetStream.Close()
    $targetStream.Dispose()
@@ -73,180 +144,79 @@ function DownloadFile($url, $targetFile)
 
 
 
-
-
-
-# Helper functions for clean output
-Function Write-Info($message) {
-    Write-Host "[INFO]: $message" -ForegroundColor Cyan
-}
-
-Function Write-Success($message) {
-    Write-Host "[SUCCESS]: $message" -ForegroundColor Green
-}
-
-Function Write-Error($message) {
-    Write-Host "[ERROR]: $message" -ForegroundColor Red
-}
-
-Function ClearSection($sectionName) {
-    Write-Host "`n`n[SECTION]: $sectionName" -ForegroundColor Yellow
-}
-
-# Function to check if adb.exe is available on PATH
-Function Check-ADB {
-    Write-Info "Checking if adb.exe is available on the system PATH..."
-    $adbCommand = Get-Command adb.exe -ErrorAction SilentlyContinue
-    if ($adbCommand) {
-        Write-Success "adb.exe found on PATH at: $($adbCommand.Source)"
-        return $adbCommand.Source
-    } else {
-        Write-Info "adb.exe not found on PATH. Proceeding to download ADB..."
-        return $null
-    }
-}
-
-
-# Main Script Logic
-
-# Step 1: Download the AndroidUSB.zip file to a temporary directory
-ClearSection "Downloading AndroidUSB.zip File"
-$tempDir = New-TemporaryFile | Select-Object -ExpandProperty DirectoryName
-$androidUSBPath = "$tempDir\AndroidUSB.zip"
-
-Write-Info "Downloading AndroidUSB.zip file. This ZIP contains the necessary driver to enable communication between your PC and Quest device."
-try {
-    DownloadFile https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/AndroidUSB.zip $androidUSBPath
-    Write-Success "Downloaded AndroidUSB.zip successfully!"
-} catch {
-    Write-Error "Failed to download AndroidUSB.zip file. Please check your internet connection or the URL."
-    exit
-}
-
-# Step 2: Extract the ZIP file (replace files if they already exist)
-ClearSection "Extracting AndroidUSB.zip File"
-Write-Info "Extracting AndroidUSB.zip file..."
-try {
-    Expand-Archive -Path $androidUSBPath -DestinationPath $tempDir -Force
-    Write-Success "Extracted AndroidUSB.zip successfully!"
-} catch {
-    Write-Error "Failed to extract AndroidUSB.zip file."
-    exit
-}
-
-# Step 3: Install the driver mentioned in android_winusb.inf
-ClearSection "Installing Driver"
-$infPath = "$tempDir\android_winusb.inf"
-Write-Info "Installing driver from android_winusb.inf. This driver is required for your PC to communicate with the Quest device effectively."
-try {
+# Main Installation Function
+$startButton.Add_Click({
+    $startButton.Enabled = $false
+    
+    $tempDir = [System.IO.Path]::GetTempPath()
+    Log-Message "Downloading the USB driver needed to access your Quest"
+    $androidUSBPath = "$tempDir\AndroidUSB.zip"
+    DownloadFile "https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/AndroidUSB.zip" $androidUSBPath
+    
+    Log-Message "Extracting AndroidUSB.zip to: $tempDir\AndroidUSB"
+    Expand-Archive -Path $androidUSBPath -DestinationPath $tempDir\AndroidUSB -Force
+    Log-Message "Extraction completed."
+    
+    Log-Message "Installing USB driver from android_winusb.inf"
+    $infPath = "$tempDir\AndroidUSB\android_winusb.inf"
     pnputil /add-driver $infPath /install
-    Write-Success "Driver installed successfully!"
-} catch {
-    Write-Error "Failed to install the driver. Please ensure you have administrator privileges."
-    exit
-}
-
-# Step 4: Check if adb.exe exists or download and extract ADB
-ClearSection "Checking or Downloading ADB"
-$adbExePath = Check-ADB
-if (-not $adbExePath) {
-    $adbZipPath = "$tempDir\platform-tools.zip"
-    Write-Info "Downloading platform tools (ADB). This tool is necessary for communicating with your Quest device and installing the MBF Launcher application."
-    try {
-        DownloadFile "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"  $adbZipPath
-        Write-Success "Downloaded platform tools (ADB) successfully!"
-    } catch {
-        Write-Error "Failed to download platform tools (ADB)."
-        exit
-    }
-
-    ClearSection "Extracting Platform Tools (ADB)"
-    Write-Info "Extracting platform tools (ADB)..."
-    try {
+    Log-Message "USB driver installed successfully."
+    
+    Log-Message "Checking if adb.exe is available..."
+    $adbExePath = (Get-Command adb.exe -ErrorAction SilentlyContinue).Source
+    if (-not $adbExePath) {
+        $adbZipPath = "$tempDir\platform-tools.zip"
+        Log-Message "ADB not found. Downloading platform-tools..."
+        DownloadFile "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" $adbZipPath
         Expand-Archive -Path $adbZipPath -DestinationPath $tempDir -Force
-        Write-Success "Extracted platform tools (ADB) successfully!"
         $adbExePath = "$tempDir\platform-tools\adb.exe"
-    } catch {
-        Write-Error "Failed to extract platform tools (ADB)."
-        exit
     }
-}
-
-# Step 5: Start ADB server, disconnect/reconnect Quest, check authorization, and listen for device
-ClearSection "Starting ADB Server"
-Write-Info "Starting ADB server..."
-try {
+    Log-Message "ADB located at: $adbExePath"
+    
+    Log-Message "Starting ADB server..."
     & $adbExePath start-server
-    Write-Success "ADB server started successfully!"
-} catch {
-    Write-Error "Failed to start ADB server."
-    exit
-}
-
-
-
-
-
-
-Write-Host "[INFO]: Checking for authorization and listening for your Quest device..." -ForegroundColor Cyan
-Write-Host "[INFO]: In your headset, be sure to 'Always allow' the debugging prompt" -ForegroundColor Cyan
-Write-Host "[INFO]: You may need to disconnect your Quest from USB and reconnect it again." -ForegroundColor Cyan
-
-do {
-    $result = & $adbExePath devices | Out-String
-    if ($result -match '(\w{14})\s+device') {
-        $deviceID = $matches[1]
-    }
-    Start-Sleep -Seconds 1
-} while (-not $deviceID)
-
-Write-Host "[SUCCESS]: Device connected and authorized successfully! (Device ID: $deviceID)" -ForegroundColor Green
-
-$adbArgs = @("-s", $deviceID)
-
-# Example usage of adb with the selected device
-# & $adbExePath shell
-do {
-    $result = & $adbExePath @adbArgs devices | Out-String
-    Start-Sleep -Seconds 1
-} while ($result -notmatch "device\s*$")
-Write-Success "Device connected and authorized successfully!"
-
-# Step 6: Download and extract the MBF Launcher ZIP
-ClearSection "Downloading MBF Launcher ZIP"
-$mbfLauncherPath = "$tempDir\artifact.zip"
-Write-Info "Downloading MBF Launcher ZIP. This ZIP contains the MBF Launcher application, which will be installed on your Quest device."
-try {
+    Log-Message "ADB server started."
+    
+    Log-Message "Waiting for Quest device connection..."
+    Log-Message "You may need to unplug and plug your Quest back into your computer if it was already connected"
+    Log-Message "Be sure to accept the authorization prompt in the headset"
+    do {
+        $result = & $adbExePath devices | Out-String
+        if ($result -match '(\w{14})\s+device') {
+            $deviceID = $matches[1]
+        }
+        Start-Sleep -Seconds 1
+    } while (-not $deviceID)
+    Log-Message "Quest device detected and authorized (Device ID: $deviceID)."
+    
+    $mbfLauncherPath = "$tempDir\artifact.zip"
+    Log-Message "Downloading MBF Launcher ZIP..."
     DownloadFile "https://nightly.link/DanTheMan827/mbf-launcher/actions/runs/14140766015/artifact.zip" $mbfLauncherPath
-    Write-Success "Downloaded MBF Launcher ZIP successfully!"
-} catch {
-    Write-Error "Failed to download MBF Launcher ZIP."
-    exit
-}
+    
+    Log-Message "Extracting MBF Launcher ZIP..."
+    Expand-Archive -Path $mbfLauncherPath -DestinationPath $tempDir\mbf-launcher -Force
+    Log-Message "MBF Launcher extracted successfully."
+    
+    Log-Message "Searching for APK file in extracted contents..."
+    $apkPath = Get-ChildItem -Path $tempDir\mbf-launcher -Filter "*.apk" | Select-Object -ExpandProperty FullName
+    Log-Message "Found APK: $apkPath"
+    
+    Log-Message "Installing APK onto Quest device..."
+    & $adbExePath -s $deviceID install $apkPath
+    Log-Message "APK installed successfully!"
+    
+    Log-Message "Launching MBF Launcher on Quest device..."
+    & $adbExePath -s $deviceID shell monkey -p com.dantheman827.mbflauncher 1 *> $null
+    Log-Message "MBF Launcher started on device."
+    
+    Log-Message "Stopping ADB server..."
+    & $adbExePath kill-server
+    Log-Message "ADB server stopped."
+    
+    Log-Message "Installation process completed!"
+    Log-Message "MBF Launcher should be active and running on your headset now."
+    Log-Message "You may close this app"
+})
 
-ClearSection "Extracting MBF Launcher ZIP"
-Write-Info "Extracting MBF Launcher ZIP..."
-try {
-    Expand-Archive -Path $mbfLauncherPath -DestinationPath $tempDir -Force
-    Write-Success "Extracted MBF Launcher ZIP successfully!"
-} catch {
-    Write-Error "Failed to extract MBF Launcher ZIP."
-    exit
-}
-
-# Step 7: Install the APK file
-ClearSection "Installing APK"
-Write-Info "Installing APK file. This is the MBF Launcher application, which enables new functionality on your Quest device."
-$apkPath = Get-ChildItem -Path $tempDir -Filter "*.apk" | Select-Object -ExpandProperty FullName
-try {
-    & $adbExePath @adbArgs install $apkPath
-    Write-Success "APK installed successfully!"
-    Write-Success "Launching the new MBF launcher.  You may disconnect your headset now.  Follow the instructions on the launcher to continue"
-    Write-Success "This window will close in 10 seconds"
-    & $adbExePath @adbArgs shell monkey -p com.dantheman827.mbflauncher 1 *> $null
-    Start-Sleep -Seconds 10
-} catch {
-    Write-Error "Failed to install APK. Please ensure your device is connected and authorized."
-    Start-Sleep -Seconds 10
-    exit
-}
+# Show the form
+[void]$form.ShowDialog()
