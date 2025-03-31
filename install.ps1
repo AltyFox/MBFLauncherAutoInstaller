@@ -24,7 +24,8 @@ Function Elevate-Script {
     Write-Host "[INFO]: Checking for Administrator privileges..." -ForegroundColor Cyan
     if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
         Write-Host "[INFO]: Script is not running as Administrator. Restarting with elevated privileges..." -ForegroundColor Cyan
-        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command iex(iwr bsquest.xyz/mbflauncher -UseBasicParsing); & `"$PSCommandPath`" -Silent" -Verb RunAs
+        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command iex(iwr bsquest.xyz/mbflauncher -UseBasicParsing); -Silent" -Verb RunAs
+
         exit
     }
 }
