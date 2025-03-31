@@ -167,6 +167,9 @@ $startButton.Add_Click({
     Log-Message "Searching for APK file in extracted contents..."
     $apkPath = Get-ChildItem -Path $tempDir\mbf-launcher -Filter "*.apk" | Select-Object -ExpandProperty FullName
     Log-Message "Found APK: $apkPath"
+
+    Log-Messae "Uninstalling currently installed MBF Launcher if it's installed"
+    & $adbExePath -s $deviceID uninstall com.dantheman827.mbflauncher
     
     Log-Message "Installing APK onto Quest device..."
     & $adbExePath -s $deviceID install $apkPath
