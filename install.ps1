@@ -169,7 +169,7 @@ do {
     if ($result -match '(\w{14})\s+device') {
         $deviceID = $matches[1]
     }
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 1
 } while (-not $deviceID)
 
 Write-Host "[SUCCESS]: Device connected and authorized successfully! (Device ID: $deviceID)" -ForegroundColor Green
@@ -178,11 +178,9 @@ $adbArgs = @("-s", $deviceID)
 
 # Example usage of adb with the selected device
 # & $adbExePath shell
-
-Write-Info "Checking for authorization and listening for your Quest device..."
 do {
     $result = & $adbExePath @adbArgs devices | Out-String
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 1
 } while ($result -notmatch "device\s*$")
 Write-Success "Device connected and authorized successfully!"
 
@@ -222,6 +220,3 @@ try {
     Write-Error "Failed to install APK. Please ensure your device is connected and authorized."
     exit
 }
-
-ClearSection "Process Complete"
-Write-Info "All steps executed successfully."
