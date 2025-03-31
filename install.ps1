@@ -1,8 +1,6 @@
 # Ensure the script runs with elevated privileges
 Write-Host "`n`n`n`n`n`n`n`n"
 Function Elevate-Script {
-    Clear-Host
-    Add-Newlines
     Write-Host "[INFO]: Checking for Administrator privileges..." -ForegroundColor Cyan
     if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
         Add-Newlines
@@ -145,7 +143,27 @@ do {
     $input = Read-Host "Have you reconnected the device? (y/n)"
 } while ($input.ToLower() -ne "y")
 
-Check-Quest-Device
+
+
+
+
+Write-Host "[INFO]: Checking for authorization and listening for your Quest device..." -ForegroundColor Cyan
+
+do {
+    $result = & $adbExePath devices | Out-String
+    if ($result -match '(\w{14})\s+device') {
+        $deviceID = $matches[1]
+    }
+    Start-Sleep -Seconds 5
+} while (-not $deviceID)
+
+Write-Host "[SUCCESS]: Device connected and authorized successfully! (Device ID: $deviceID)" -ForegroundColor Green
+
+# Modify adbExePath to include the detected device
+$adbExePath = "$adbExePath -s $deviceID"
+
+# Example usage of adb with the selected device
+# & $adbExePath shell
 
 Write-Info "Checking for authorization and listening for your Quest device..."
 do {
