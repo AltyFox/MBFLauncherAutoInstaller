@@ -1,0 +1,30 @@
+name: Compile PowerShell Script
+
+on:
+  push:
+    branches:
+      - main  # Change this to your default branch if needed
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ps2exe module
+        run: |
+          Install-Module -Name ps2exe -Force -Scope CurrentUser
+        shell: pwsh
+
+      - name: Compile install.ps1 to install.exe
+        run: |
+          ps2exe .\install.ps1 .\install.exe
+        shell: pwsh
+
+      - name: Upload compiled executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-installer
+          path: install.exe
