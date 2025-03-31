@@ -1,12 +1,5 @@
 Write-Host "Starting the MBF Launcher installer script." -ForegroundColor Green
-
-add-type -name user32 -namespace win32 -memberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);'
-$consoleHandle = (get-process -id $pid).mainWindowHandle
-
-# load your form or whatever ...
-
-# hide console
-[win32.user32]::showWindow($consoleHandle, 0)
+Write-Host "You can ignore this console window."
 
 
 
