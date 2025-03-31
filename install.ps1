@@ -122,7 +122,9 @@ $startButton.Add_Click({
     
     Log-Message "Installing USB driver from android_winusb.inf"
     Log-Message "This requires Admin privledges.  You may see a prompt.  Accept it."
+    Start-Sleep -Seconds 5
     $infPath = "$tempDir\AndroidUSB\android_winusb.inf"
+    
     Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs
     Log-Message "USB driver installed successfully."
     
