@@ -58,7 +58,8 @@ $form.Controls.Add($startButton)
 if (-not $Silent) {
     $adminWarning = [System.Windows.Forms.MessageBox]::Show(
         "Before you begin, this application will request admin privileges if you have not already granted them.`n`n" +
-        "You will need to grant 'PowerShell' administrator privileges. This is required to install the necessary driver.`n`n" +
+        "You may see a prompt to allow admin privledges to Windows PowerShell.  Grant the permissions or this application`n`n" +
+        "won't be able to install the nessecary drivers.`n`n" +
         "Ensure that no other applications on your headset are open.",
         "Administrator Privileges Required",
         [System.Windows.Forms.MessageBoxButtons]::OKCancel,
