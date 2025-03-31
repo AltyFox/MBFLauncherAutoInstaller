@@ -2,6 +2,8 @@ param(
     [switch]$Silent
 )
 
+Write-Host "Starting the MBF Launcher installer script." -ForegroundColor Green
+
 add-type -name user32 -namespace win32 -memberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);'
 $consoleHandle = (get-process -id $pid).mainWindowHandle
 
