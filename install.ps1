@@ -158,7 +158,7 @@ $startButton.Add_Click({
     
     $mbfLauncherPath = "$tempDir\artifact.zip"
     Log-Message "Downloading MBF Launcher ZIP..."
-    DownloadFile "https://nightly.link/DanTheMan827/mbf-launcher/actions/runs/14140766015/artifact.zip" $mbfLauncherPath
+    DownloadFile "https://nightly.link/DanTheMan827/mbf-launcher/workflows/dotnet/master/artifact.zip" $mbfLauncherPath
     
     Log-Message "Extracting MBF Launcher ZIP..."
     Expand-Archive -Path $mbfLauncherPath -DestinationPath $tempDir\mbf-launcher -Force
