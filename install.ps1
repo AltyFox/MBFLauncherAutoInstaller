@@ -72,19 +72,7 @@ function DownloadFile($url, $targetFile)
 }
 
 
-Function Check-Quest-Device {
-    Write-Info "Checking for connected devices..."
-    do {
-        $deviceList = & $adbExePath devices | Select-String "device"
-        $devices = $deviceList -match "^([A-Za-z0-9]+)\s+device$"
-        if ($devices.Count -gt 1) {
-            Write-Error "Multiple Android devices detected. Please disconnect all devices except your Quest and press Enter to continue."
-            Read-Host "Press Enter to retry"
-        }
-        Start-Sleep -Seconds 1
-    } while ($devices.Count -gt 1)
-    Write-Success "Quest device detected and ready!"
-}
+
 
 
 
@@ -201,6 +189,7 @@ try {
 
 
 Write-Host "[INFO]: Checking for authorization and listening for your Quest device..." -ForegroundColor Cyan
+Write-Host "[INFO]: In your headset, be sure to 'Always allow' the debugging prompt" -ForegroundColor Cyan
 Write-Host "[INFO]: You may need to disconnect your Quest from USB and reconnect it again." -ForegroundColor Cyan
 
 do {
@@ -250,7 +239,6 @@ ClearSection "Installing APK"
 Write-Info "Installing APK file. This is the MBF Launcher application, which enables new functionality on your Quest device."
 $apkPath = Get-ChildItem -Path $tempDir -Filter "*.apk" | Select-Object -ExpandProperty FullName
 try {
-    Check-Quest-Device
     & $adbExePath @adbArgs install $apkPath
     Write-Success "APK installed successfully!"
     Write-Success "Launching the new MBF launcher.  You may disconnect your headset now.  Follow the instructions on the launcher to continue"
