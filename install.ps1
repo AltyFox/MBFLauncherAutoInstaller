@@ -12,6 +12,8 @@ $consoleHandle = (get-process -id $pid).mainWindowHandle
 # hide console
 [win32.user32]::showWindow($consoleHandle, 0)
 
+
+
 Add-Type -AssemblyName System.Windows.Forms
 
 # Create Form
@@ -54,8 +56,6 @@ $form.Controls.Add($startButton)
 
 
 
-
-
 # Only show the prompt if -Silent is NOT provided
 if (-not $Silent) {
     $adminWarning = [System.Windows.Forms.MessageBox]::Show(
@@ -72,6 +72,8 @@ if (-not $Silent) {
         exit
     }
 }
+
+
 
 
 
@@ -182,12 +184,13 @@ $startButton.Add_Click({
     Log-Message "Waiting for Quest device connection..."
     Log-Message "You may need to unplug and plug your Quest back into your computer if it was already connected"
     Log-Message "Be sure to accept the authorization prompt in the headset"
+
+    
     do {
         $result = & $adbExePath devices | Out-String
         if ($result -match '(\w{14})\s+device') {
             $deviceID = $matches[1]
         }
-        Start-Sleep -Seconds 1
     } while (-not $deviceID)
     Log-Message "Quest device detected and authorized (Device ID: $deviceID)."
     
