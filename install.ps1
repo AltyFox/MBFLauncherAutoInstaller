@@ -1,3 +1,18 @@
+Write-Host "`n============================================================" -ForegroundColor Yellow
+Write-Host "Before you begin, this application will request admin privileges" -ForegroundColor Cyan
+Write-Host "if you have not already granted them." -ForegroundColor Cyan
+Write-Host "`nYou will need to grant `"PowerShell`" administrator privileges." -ForegroundColor Green
+Write-Host "This is required to install the necessary driver." -ForegroundColor Green
+Write-Host "`nEnsure that no other applications on your headset are open." -ForegroundColor Magenta
+Write-Host "============================================================`n" -ForegroundColor Yellow
+
+do {
+    $response = Read-Host "Do you understand? (y/n)"
+} while ($response -notmatch "^[yY]$")
+
+Write-Host "`n[INFO]: Proceeding with the installation..." -ForegroundColor Green
+
+
 # Ensure the script runs with elevated privileges
 Write-Host "`n`n`n`n`n`n`n`n"
 Function Elevate-Script {
@@ -159,15 +174,14 @@ do {
 
 Write-Host "[SUCCESS]: Device connected and authorized successfully! (Device ID: $deviceID)" -ForegroundColor Green
 
-# Modify adbExePath to include the detected device
-$adbExePath = "$adbExePath -s $deviceID"
+$adbArgs = @("-s", $deviceID)
 
 # Example usage of adb with the selected device
 # & $adbExePath shell
 
 Write-Info "Checking for authorization and listening for your Quest device..."
 do {
-    $result = & $adbExePath devices | Out-String
+    $result = & $adbExePath @adbArgs devices | Out-String
     Start-Sleep -Seconds 5
 } while ($result -notmatch "device\s*$")
 Write-Success "Device connected and authorized successfully!"
@@ -200,9 +214,10 @@ Write-Info "Installing APK file. This is the MBF Launcher application, which ena
 $apkPath = Get-ChildItem -Path $tempDir -Filter "*.apk" | Select-Object -ExpandProperty FullName
 try {
     Check-Quest-Device
-    & $adbExePath install $apkPath
+    & $adbExePath @adbArgs install $apkPath
     Write-Success "APK installed successfully!"
-    & $adbExePath shell monkey -p com.dantheman827.mbflauncher 1
+    Write-Success "Launching the new MBF launcher.  You may disconnect your headset now.  Follow the instructions on the launcher to continue"
+    & $adbExePath @adbArgs shell monkey -p com.dantheman827.mbflauncher 1
 } catch {
     Write-Error "Failed to install APK. Please ensure your device is connected and authorized."
     exit
