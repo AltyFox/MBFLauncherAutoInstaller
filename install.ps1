@@ -24,13 +24,52 @@ Function Elevate-Script {
     Write-Host "[INFO]: Checking for Administrator privileges..." -ForegroundColor Cyan
     if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
         Write-Host "[INFO]: Script is not running as Administrator. Restarting with elevated privileges..." -ForegroundColor Cyan
-        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command iex(iwr bsquest.xyz/mbflauncher -UseBasicParsing); -Silent" -Verb RunAs
-
+        
+        $tempPath = [System.IO.Path]::GetTempFileName()
+        $tempScript = "$tempPath.ps1"
+        Invoke-WebRequest -Uri "https://bsquest.xyz/mbflauncher" -OutFile $tempScript
+        
+        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`" -Silent" -Verb RunAs
+        
         exit
     }
 }
 
 Elevate-Script
+
+function DownloadFile($url, $targetFile)
+{
+   $uri = New-Object "System.Uri" "$url"
+   $request = [System.Net.HttpWebRequest]::Create($uri)
+   $request.set_Timeout(15000) # 15-second timeout
+   $response = $request.GetResponse()
+   $totalLength = [System.Math]::Floor($response.get_ContentLength()/1024)
+   $responseStream = $response.GetResponseStream()
+   $targetStream = New-Object -TypeName System.IO.FileStream -ArgumentList $targetFile, Create
+   $buffer = new-object byte[] 10KB
+   $count = $responseStream.Read($buffer,0,$buffer.length)
+   $downloadedBytes = $count
+   
+   $fileName = $url.Split('/') | Select -Last 1
+   Write-Host "Downloading file: $fileName ($totalLength KB)"
+   
+   while ($count -gt 0)
+   {
+       $targetStream.Write($buffer, 0, $count)
+       $count = $responseStream.Read($buffer,0,$buffer.length)
+       $downloadedBytes += $count
+       
+       $percentComplete = ([System.Math]::Floor($downloadedBytes/1024) / $totalLength) * 100
+       Write-Host -NoNewline "`rProgress: $([System.Math]::Floor($downloadedBytes/1024)) KB / $totalLength KB ($([System.Math]::Floor($percentComplete))%)   "
+   }
+   
+   Write-Host "`nDownload complete: $fileName"
+   
+   $targetStream.Flush()
+   $targetStream.Close()
+   $targetStream.Dispose()
+   $responseStream.Dispose()
+}
 
 
 Function Check-Quest-Device {
@@ -89,7 +128,7 @@ $androidUSBPath = "$tempDir\AndroidUSB.zip"
 
 Write-Info "Downloading AndroidUSB.zip file. This ZIP contains the necessary driver to enable communication between your PC and Quest device."
 try {
-    Invoke-WebRequest -Uri "https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/AndroidUSB.zip" -OutFile $androidUSBPath
+    DownloadFile https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/AndroidUSB.zip $androidUSBPath
     Write-Success "Downloaded AndroidUSB.zip successfully!"
 } catch {
     Write-Error "Failed to download AndroidUSB.zip file. Please check your internet connection or the URL."
@@ -126,7 +165,7 @@ if (-not $adbExePath) {
     $adbZipPath = "$tempDir\platform-tools.zip"
     Write-Info "Downloading platform tools (ADB). This tool is necessary for communicating with your Quest device and installing the MBF Launcher application."
     try {
-        Invoke-WebRequest -Uri "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile $adbZipPath
+        DownloadFile "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"  $adbZipPath
         Write-Success "Downloaded platform tools (ADB) successfully!"
     } catch {
         Write-Error "Failed to download platform tools (ADB)."
@@ -189,7 +228,7 @@ ClearSection "Downloading MBF Launcher ZIP"
 $mbfLauncherPath = "$tempDir\artifact.zip"
 Write-Info "Downloading MBF Launcher ZIP. This ZIP contains the MBF Launcher application, which will be installed on your Quest device."
 try {
-    Invoke-WebRequest -Uri "https://nightly.link/DanTheMan827/mbf-launcher/actions/runs/14140766015/artifact.zip" -OutFile $mbfLauncherPath
+    DownloadFile "https://nightly.link/DanTheMan827/mbf-launcher/actions/runs/14140766015/artifact.zip" $mbfLauncherPath
     Write-Success "Downloaded MBF Launcher ZIP successfully!"
 } catch {
     Write-Error "Failed to download MBF Launcher ZIP."
