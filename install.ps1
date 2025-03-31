@@ -155,18 +155,13 @@ try {
     exit
 }
 
-ClearSection "Reconnect Quest Device"
-Write-Info "Please unplug your Quest device from your PC and then plug it back in."
-Write-Info "Once you have reconnected the device, type 'y' and press Enter to continue."
-do {
-    $input = Read-Host "Have you reconnected the device? (y/n)"
-} while ($input.ToLower() -ne "y")
 
 
 
 
 
 Write-Host "[INFO]: Checking for authorization and listening for your Quest device..." -ForegroundColor Cyan
+Write-Host "[INFO]: You may need to disconnect your Quest from USB and reconnect it again." -ForegroundColor Cyan
 
 do {
     $result = & $adbExePath devices | Out-String
