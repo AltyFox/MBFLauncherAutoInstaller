@@ -214,8 +214,11 @@ try {
     & $adbExePath @adbArgs install $apkPath
     Write-Success "APK installed successfully!"
     Write-Success "Launching the new MBF launcher.  You may disconnect your headset now.  Follow the instructions on the launcher to continue"
-    & $adbExePath @adbArgs shell monkey -p com.dantheman827.mbflauncher 1
+    Write-Success "This window will close in 10 seconds"
+    & $adbExePath @adbArgs shell monkey -p com.dantheman827.mbflauncher 1 *> $null
+    Start-Sleep -Seconds 10
 } catch {
     Write-Error "Failed to install APK. Please ensure your device is connected and authorized."
+    Start-Sleep -Seconds 10
     exit
 }
