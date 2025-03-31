@@ -1,3 +1,14 @@
+# Ensure the script runs with elevated privileges
+Function Elevate-Script {
+    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+        Write-Host "Script is not running as Administrator. Restarting with elevated privileges..."
+        Start-Process powershell.exe -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"" + $MyInvocation.MyCommand.Path + "`"") -Verb RunAs
+        exit
+    }
+}
+
+Elevate-Script
+
 # Step 1: Download the AndroidUSB.zip file to a temporary directory
 $tempDir = New-TemporaryFile | Select-Object -ExpandProperty DirectoryName
 $androidUSBPath = "$tempDir\AndroidUSB.zip"
