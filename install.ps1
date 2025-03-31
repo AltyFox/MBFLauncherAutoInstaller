@@ -1,31 +1,36 @@
-Write-Host "`n============================================================" -ForegroundColor Yellow
-Write-Host "Before you begin, this application will request admin privileges" -ForegroundColor Cyan
-Write-Host "if you have not already granted them." -ForegroundColor Cyan
-Write-Host "`nYou will need to grant `"PowerShell`" administrator privileges." -ForegroundColor Green
-Write-Host "This is required to install the necessary driver." -ForegroundColor Green
-Write-Host "`nEnsure that no other applications on your headset are open." -ForegroundColor Magenta
-Write-Host "============================================================`n" -ForegroundColor Yellow
+param(
+    [switch]$Silent
+)
 
-do {
-    $response = Read-Host "Do you understand? (y/n)"
-} while ($response -notmatch "^[yY]$")
+# Only show the prompt if -Silent is NOT provided
+if (-not $Silent) {
+    Write-Host "`n============================================================" -ForegroundColor Yellow
+    Write-Host "Before you begin, this application will request admin privileges" -ForegroundColor Cyan
+    Write-Host "if you have not already granted them." -ForegroundColor Cyan
+    Write-Host "`nYou will need to grant `"PowerShell`" administrator privileges." -ForegroundColor Green
+    Write-Host "This is required to install the necessary driver." -ForegroundColor Green
+    Write-Host "`nEnsure that no other applications on your headset are open." -ForegroundColor Magenta
+    Write-Host "============================================================`n" -ForegroundColor Yellow
 
-Write-Host "`n[INFO]: Proceeding with the installation..." -ForegroundColor Green
+    do {
+        $response = Read-Host "Do you understand? (y/n)"
+    } while ($response -notmatch "^[yY]$")
 
+    Write-Host "`n[INFO]: Proceeding with the installation..." -ForegroundColor Green
+}
 
-# Ensure the script runs with elevated privileges
-Write-Host "`n`n`n`n`n`n`n`n"
+# Function to elevate the script with admin privileges
 Function Elevate-Script {
     Write-Host "[INFO]: Checking for Administrator privileges..." -ForegroundColor Cyan
     if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-        Add-Newlines
         Write-Host "[INFO]: Script is not running as Administrator. Restarting with elevated privileges..." -ForegroundColor Cyan
-        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command iex(iwr bsquest.xyz/mbflauncher)" -Verb RunAs
+        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command iex(iwr bsquest.xyz/mbflauncher -UseBasicParsing); & `"$PSCommandPath`" -Silent" -Verb RunAs
         exit
     }
 }
 
 Elevate-Script
+
 
 Function Check-Quest-Device {
     Write-Info "Checking for connected devices..."
