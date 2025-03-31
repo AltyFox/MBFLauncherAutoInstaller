@@ -57,8 +57,7 @@ Function Write-Error($message) {
 }
 
 Function ClearSection($sectionName) {
-    Write-Host "[SECTION]: $sectionName" -ForegroundColor Yellow
-    Start-Sleep -Seconds 2
+    Write-Host "`n`n[SECTION]: $sectionName" -ForegroundColor Yellow
 }
 
 # Function to check if adb.exe is available on PATH
