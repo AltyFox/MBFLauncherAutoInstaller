@@ -12,6 +12,8 @@ Function Elevate-Script {
     }
 }
 
+Elevate-Script
+
 Function Check-Quest-Device {
     Write-Info "Checking for connected devices..."
     do {
