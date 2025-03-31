@@ -1,4 +1,5 @@
 # Ensure the script runs with elevated privileges
+Write-Host "`n`n`n`n`n`n`n`n"
 Function Elevate-Script {
     Clear-Host
     Add-Newlines
@@ -6,41 +7,58 @@ Function Elevate-Script {
     if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
         Add-Newlines
         Write-Host "[INFO]: Script is not running as Administrator. Restarting with elevated privileges..." -ForegroundColor Cyan
-        Start-Process powershell.exe -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"" + $MyInvocation.MyCommand.Path + "`"") -Verb RunAs
+        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command iex(iwr launcher.bsquest.xyz)" -Verb RunAs
         exit
     }
 }
 
-# Function to add newlines
-Function Add-Newlines {
-    Write-Host "`n`n`n`n`n`n`n`n"
+Function Check-Quest-Device {
+    Write-Info "Checking for connected devices..."
+    do {
+        $deviceList = & $adbExePath devices | Select-String "device"
+        $devices = $deviceList -match "^([A-Za-z0-9]+)\s+device$"
+        if ($devices.Count -gt 1) {
+            Write-Error "Multiple Android devices detected. Please disconnect all devices except your Quest and press Enter to continue."
+            Read-Host "Press Enter to retry"
+        }
+        Start-Sleep -Seconds 1
+    } while ($devices.Count -gt 1)
+    Write-Success "Quest device detected and ready!"
 }
+
+
 
 # Helper functions for clean output
 Function Write-Info($message) {
-    Clear-Host
-    Add-Newlines
     Write-Host "[INFO]: $message" -ForegroundColor Cyan
 }
 
 Function Write-Success($message) {
-    Clear-Host
-    Add-Newlines
     Write-Host "[SUCCESS]: $message" -ForegroundColor Green
 }
 
 Function Write-Error($message) {
-    Clear-Host
-    Add-Newlines
     Write-Host "[ERROR]: $message" -ForegroundColor Red
 }
 
 Function ClearSection($sectionName) {
-    Clear-Host
-    Add-Newlines
     Write-Host "[SECTION]: $sectionName" -ForegroundColor Yellow
     Start-Sleep -Seconds 2
 }
+
+# Function to check if adb.exe is available on PATH
+Function Check-ADB {
+    Write-Info "Checking if adb.exe is available on the system PATH..."
+    $adbCommand = Get-Command adb.exe -ErrorAction SilentlyContinue
+    if ($adbCommand) {
+        Write-Success "adb.exe found on PATH at: $($adbCommand.Source)"
+        return $adbCommand.Source
+    } else {
+        Write-Info "adb.exe not found on PATH. Proceeding to download ADB..."
+        return $null
+    }
+}
+
 
 # Main Script Logic
 
@@ -81,7 +99,43 @@ try {
     exit
 }
 
-# Step: Ask User to Reconnect Quest Device
+# Step 4: Check if adb.exe exists or download and extract ADB
+ClearSection "Checking or Downloading ADB"
+$adbExePath = Check-ADB
+if (-not $adbExePath) {
+    $adbZipPath = "$tempDir\platform-tools.zip"
+    Write-Info "Downloading platform tools (ADB). This tool is necessary for communicating with your Quest device and installing the MBF Launcher application."
+    try {
+        Invoke-WebRequest -Uri "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile $adbZipPath
+        Write-Success "Downloaded platform tools (ADB) successfully!"
+    } catch {
+        Write-Error "Failed to download platform tools (ADB)."
+        exit
+    }
+
+    ClearSection "Extracting Platform Tools (ADB)"
+    Write-Info "Extracting platform tools (ADB)..."
+    try {
+        Expand-Archive -Path $adbZipPath -DestinationPath $tempDir -Force
+        Write-Success "Extracted platform tools (ADB) successfully!"
+        $adbExePath = "$tempDir\platform-tools\adb.exe"
+    } catch {
+        Write-Error "Failed to extract platform tools (ADB)."
+        exit
+    }
+}
+
+# Step 5: Start ADB server, disconnect/reconnect Quest, check authorization, and listen for device
+ClearSection "Starting ADB Server"
+Write-Info "Starting ADB server..."
+try {
+    & $adbExePath start-server
+    Write-Success "ADB server started successfully!"
+} catch {
+    Write-Error "Failed to start ADB server."
+    exit
+}
+
 ClearSection "Reconnect Quest Device"
 Write-Info "Please unplug your Quest device from your PC and then plug it back in."
 Write-Info "Once you have reconnected the device, type 'y' and press Enter to continue."
@@ -89,39 +143,14 @@ do {
     $input = Read-Host "Have you reconnected the device? (y/n)"
 } while ($input.ToLower() -ne "y")
 
-Write-Success "Quest device reconnected. Proceeding to the next step."
+Check-Quest-Device
 
-# Step 4: Download and extract the platform tools (ADB)
-ClearSection "Downloading Platform Tools (ADB)"
-$adbPath = "$tempDir\platform-tools.zip"
-Write-Info "Downloading platform tools (ADB). This tool is necessary for communicating with your Quest device and installing the MBF Launcher application."
-try {
-    Invoke-WebRequest -Uri "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile $adbPath
-    Write-Success "Downloaded platform tools (ADB) successfully!"
-} catch {
-    Write-Error "Failed to download platform tools (ADB)."
-    exit
-}
-
-ClearSection "Extracting Platform Tools (ADB)"
-Write-Info "Extracting platform tools (ADB)..."
-try {
-    Expand-Archive -Path $adbPath -DestinationPath $tempDir -Force
-    Write-Success "Extracted platform tools (ADB) successfully!"
-} catch {
-    Write-Error "Failed to extract platform tools (ADB)."
-    exit
-}
-
-# Step 5: Run ADB and prompt user for authorization
-ClearSection "Checking ADB Authorization"
-$adbExePath = "$tempDir\platform-tools\adb.exe"
-Write-Info "Starting ADB and checking for authorization. Please accept the authorization prompt on your Quest device."
+Write-Info "Checking for authorization and listening for your Quest device..."
 do {
     $result = & $adbExePath devices | Out-String
     Start-Sleep -Seconds 5
-} until ($result -match "device\s*$")
-Write-Success "Authorization accepted!"
+} while ($result -notmatch "device\s*$")
+Write-Success "Device connected and authorized successfully!"
 
 # Step 6: Download and extract the MBF Launcher ZIP
 ClearSection "Downloading MBF Launcher ZIP"
@@ -150,8 +179,10 @@ ClearSection "Installing APK"
 Write-Info "Installing APK file. This is the MBF Launcher application, which enables new functionality on your Quest device."
 $apkPath = Get-ChildItem -Path $tempDir -Filter "*.apk" | Select-Object -ExpandProperty FullName
 try {
+    Check-Quest-Device
     & $adbExePath install $apkPath
     Write-Success "APK installed successfully!"
+    & $adbExePath shell monkey -p com.dantheman827.mbflauncher 1
 } catch {
     Write-Error "Failed to install APK. Please ensure your device is connected and authorized."
     exit
