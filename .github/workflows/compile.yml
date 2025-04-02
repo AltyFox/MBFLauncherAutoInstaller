@@ -56,7 +56,6 @@ jobs:
                   }
                 shell: pwsh
      
-                    
               - name: Create Release
                 if: env.is_version == 'true'
                 id: create_release
