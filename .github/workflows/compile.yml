@@ -35,8 +35,8 @@ jobs:
               - name: Upload installer.exe as artifact
                 uses: actions/upload-artifact@v4
                 with:
-                  name: MBF-Bridge-Installer
-                  path: MBF-Bridge-Installer.exe
+                  name: MBF-Launcher-Installer
+                  path: MBF-Launcher-Installer.exe
 
               - name: Get first line of commit message
                 id: get_commit_message
