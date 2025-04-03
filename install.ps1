@@ -1,8 +1,3 @@
-Write-Host "Starting the MBF Launcher installer script." -ForegroundColor Green
-Write-Host "You can ignore this console window."
-
-
-
 Add-Type -AssemblyName System.Windows.Forms
 
 # Create Form
@@ -140,7 +135,7 @@ $startButton.Add_Click({
     Log-Message "ADB located at: $adbExePath"
     
     Log-Message "Starting ADB server..."
-    & $adbExePath start-server
+    & $adbExePath start-server *> $null
     Log-Message "ADB server started."
     
     Log-Message "Waiting for Quest device connection..."
