@@ -38,7 +38,12 @@ $startButton.Size = New-Object System.Drawing.Size(100,40)
 $startButton.Text = "Start"
 $form.Controls.Add($startButton)
 
-
+# Download JSON file and parse "launcher-download-url"
+$jsonUrl = "https://raw.githubusercontent.com/AltyFox/MBFLauncherAutoInstaller/refs/heads/main/config.json"
+$jsonFilePath = "$env:TEMP\config.json"
+Invoke-WebRequest -Uri $jsonUrl -OutFile $jsonFilePath
+$jsonContent = Get-Content -Path $jsonFilePath -Raw | ConvertFrom-Json
+$launcherDownloadUrl = $jsonContent."launcher-download-url"
 
 
 # Get the icon of the current executable and set it as the form's icon
@@ -163,7 +168,7 @@ $startButton.Add_Click({
     
     $mbfLauncherPath = "$tempDir\artifact.zip"
     Log-Message "Downloading MBF Launcher ZIP..."
-    DownloadFile "https://nightly.link/DanTheMan827/mbf-launcher/workflows/dotnet/master/artifact.zip" $mbfLauncherPath
+    DownloadFile $launcherDownloadUrl $mbfLauncherPath
     
     Log-Message "Extracting MBF Launcher ZIP..."
     Expand-Archive -Path $mbfLauncherPath -DestinationPath $tempDir\mbf-launcher -Force
