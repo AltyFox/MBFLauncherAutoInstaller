@@ -116,11 +116,19 @@ $startButton.Add_Click({
     Log-Message "Extraction completed."
     
     Log-Message "Installing USB driver from android_winusb.inf"
-    Log-Message "This requires Admin privledges.  You may see a prompt.  Accept it."
-    Start-Sleep -Seconds 5
-    $infPath = "$tempDir\AndroidUSB\android_winusb.inf"
+        $messageBox = [System.Windows.Forms.MessageBox]::Show(
+            "This requires Admin privileges. You may see a prompt, please accept it. If you don't accept the prompt and install the drivers, MBF Bridge may not function correctly.",
+            "Admin Privileges Required",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        )
+
+        if ($messageBox -eq [System.Windows.Forms.DialogResult]::OK) {
+            $infPath = "$tempDir\AndroidUSB\android_winusb.inf"
+            Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs
+            Log-Message "USB driver installed successfully."
+        }
     
-    Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs
     Log-Message "USB driver installed successfully."
     
     Log-Message "Checking if adb.exe is available..."
