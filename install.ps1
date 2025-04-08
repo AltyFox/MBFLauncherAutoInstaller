@@ -41,7 +41,9 @@ $form.Controls.Add($startButton)
 
 
 
-
+# Get the icon of the current executable and set it as the form's icon
+$currentExePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+$form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($currentExePath)
 
 
 
@@ -117,7 +119,7 @@ $startButton.Add_Click({
     
     Log-Message "Installing USB driver from android_winusb.inf"
         $messageBox = [System.Windows.Forms.MessageBox]::Show(
-            "This requires Admin privileges. You may see a prompt, please accept it. If you don't accept the prompt and install the drivers, MBF Bridge may not function correctly.",
+            "This requires Admin privileges. You may see a prompt, please accept it. If you don't accept the prompt and install the drivers, this installer will be unable to install the MBF Launcher.",
             "Admin Privileges Required",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Warning
