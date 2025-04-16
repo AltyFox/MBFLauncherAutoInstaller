@@ -1,5 +1,5 @@
 Add-Type -AssemblyName System.Windows.Forms
-$version = "v1.0.10"
+$version = "v1.0.12"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
@@ -65,16 +65,6 @@ if (-not (Test-Path $appDataDir)) {
 } else {
     Log-Message "Application data directory already exists at: $appDataDir"
 
-    # Kill any running adb.exe processes
-    $adbProcesses = Get-Process -Name "adb" -ErrorAction SilentlyContinue
-    if ($adbProcesses) {
-        Log-Message "Terminating running instances of adb.exe."
-        $adbProcesses | ForEach-Object { Stop-Process -Id $_.Id -Force }
-        Log-Message "All running instances of adb.exe have been terminated."
-    } else {
-        Log-Message "No running instances of adb.exe found."
-    }
-
     # Delete all contents of the directory
     Log-Message "Clearing contents of $appDataDir"
     Get-ChildItem -Path $appDataDir -Recurse -Force | Remove-Item -Force -Recurse
@@ -82,6 +72,15 @@ if (-not (Test-Path $appDataDir)) {
 }
 
 
+# Kill any running adb.exe processes
+$adbProcesses = Get-Process -Name "adb" -ErrorAction SilentlyContinue
+if ($adbProcesses) {
+    Log-Message "Terminating running instances of adb.exe."
+    $adbProcesses | ForEach-Object { Stop-Process -Id $_.Id -Force }
+    Log-Message "All running instances of adb.exe have been terminated."
+} else {
+    Log-Message "No running instances of adb.exe found."
+}
 
 # Function to download a file with progress
 
@@ -165,34 +164,22 @@ $startButton.Add_Click({
         Log-Message "USB driver installed successfully."
     }
 
-    Log-Message "Checking if adb.exe is available..."
-    $adbExePath = (Get-Command adb.exe -ErrorAction SilentlyContinue).Source
-    if (-not $adbExePath) {
-        $adbZipPath = "$appDataDir\platform-tools.zip"
-        
 
-        $platformToolsDir = "$appDataDir\platform-tools"
-        if (Test-Path $platformToolsDir) {
-            # Kill any running adb.exe processes
-            $adbProcesses = Get-Process -Name "adb" -ErrorAction SilentlyContinue
-            if ($adbProcesses) {
-                Log-Message "Terminating running instances of adb.exe before deleting platform-tools."
-                $adbProcesses | ForEach-Object { Stop-Process -Id $_.Id -Force }
-                Log-Message "All running instances of adb.exe have been terminated."
-            } else {
-                Log-Message "No running instances of adb.exe found."
-            }
-        
-            Log-Message "Deleting existing platform-tools directory"
-            Remove-Item $platformToolsDir -Recurse -Force
-        }
-        
+    $adbZipPath = "$appDataDir\platform-tools.zip"
+    
 
-        Log-Message "ADB not found. Downloading platform-tools..."
-        DownloadFile "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" $adbZipPath
-        Expand-Archive -Path $adbZipPath -DestinationPath $appDataDir -Force
-        $adbExePath = "$platformToolsDir\adb.exe"
+    $platformToolsDir = "$appDataDir\platform-tools"
+    if (Test-Path $platformToolsDir) {
+    
+        Log-Message "Deleting existing platform-tools directory"
+        Remove-Item $platformToolsDir -Recurse -Force
     }
+    
+
+    Log-Message "Downloading platform-tools..."
+    DownloadFile "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" $adbZipPath
+    Expand-Archive -Path $adbZipPath -DestinationPath $appDataDir -Force
+    $adbExePath = "$platformToolsDir\adb.exe"
     Log-Message "ADB located at: $adbExePath"
 
     Log-Message "Starting ADB server..."
