@@ -50,6 +50,12 @@ $launcherDownloadUrl = $jsonContent."launcher-download-url"
 $currentExePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
 $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($currentExePath)
 
+$appDataDir = Join-Path $env:APPDATA "mbf_tools"
+
+# Create the directory if it doesn't exist
+if (-not (Test-Path $appDataDir)) {
+    New-Item -ItemType Directory -Path $appDataDir | Out-Null
+}
 
 
 # Helper function for logging
@@ -113,89 +119,113 @@ function DownloadFile($url, $targetFile)
 $startButton.Add_Click({
     $startButton.Enabled = $false
     
-    $tempDir = [System.IO.Path]::GetTempPath()
     Log-Message "Downloading the USB driver needed to access your Quest"
-    $androidUSBPath = "$tempDir\AndroidUSB.zip"
-    DownloadFile "https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/AndroidUSB.zip" $androidUSBPath
-    
-    Log-Message "Extracting AndroidUSB.zip to: $tempDir\AndroidUSB"
-    Expand-Archive -Path $androidUSBPath -DestinationPath $tempDir\AndroidUSB -Force
-    Log-Message "Extraction completed."
-    
-    Log-Message "Installing USB driver from android_winusb.inf"
-        $messageBox = [System.Windows.Forms.MessageBox]::Show(
-            "This requires Admin privileges. You may see a prompt, please accept it. If you don't accept the prompt and install the drivers, this installer will be unable to install the MBF Launcher.",
-            "Admin Privileges Required",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Warning
-        )
+    $androidUSBPath = "$appDataDir\AndroidUSB.zip"
 
-        if ($messageBox -eq [System.Windows.Forms.DialogResult]::OK) {
-            $infPath = "$tempDir\AndroidUSB\android_winusb.inf"
-            Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs
-            Log-Message "USB driver installed successfully."
-        }
-    
-    Log-Message "USB driver installed successfully."
-    
+    # Delete existing files if they exist
+    if (Test-Path $androidUSBPath) {
+        Log-Message "Deleting existing AndroidUSB.zip"
+        Remove-Item $androidUSBPath -Force
+    }
+
+    DownloadFile "https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/AndroidUSB.zip" $androidUSBPath
+
+    $androidUSBExtractPath = "$appDataDir\AndroidUSB"
+    Log-Message "Extracting AndroidUSB.zip to: $androidUSBExtractPath"
+
+    # Delete existing folder if it exists
+    if (Test-Path $androidUSBExtractPath) {
+        Log-Message "Deleting existing AndroidUSB directory"
+        Remove-Item $androidUSBExtractPath -Recurse -Force
+    }
+
+    Expand-Archive -Path $androidUSBPath -DestinationPath $androidUSBExtractPath -Force
+    Log-Message "Extraction completed."
+
+    Log-Message "Installing USB driver from android_winusb.inf"
+    $messageBox = [System.Windows.Forms.MessageBox]::Show(
+        "This requires Admin privileges. You may see a prompt, please accept it. If you don't accept the prompt and install the drivers, this installer will be unable to install the MBF Launcher.",
+        "Admin Privileges Required",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Warning
+    )
+
+    if ($messageBox -eq [System.Windows.Forms.DialogResult]::OK) {
+        $infPath = "$androidUSBExtractPath\android_winusb.inf"
+        Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs
+        Log-Message "USB driver installed successfully."
+    }
+
     Log-Message "Checking if adb.exe is available..."
     $adbExePath = (Get-Command adb.exe -ErrorAction SilentlyContinue).Source
     if (-not $adbExePath) {
-        $adbZipPath = "$tempDir\platform-tools.zip"
+        $adbZipPath = "$appDataDir\platform-tools.zip"
+        
+        # Delete if already exists
+        if (Test-Path $adbZipPath) {
+            Log-Message "Deleting existing platform-tools.zip"
+            Remove-Item $adbZipPath -Force
+        }
+
+        $platformToolsDir = "$appDataDir\platform-tools"
+        if (Test-Path $platformToolsDir) {
+            Log-Message "Deleting existing platform-tools directory"
+            Remove-Item $platformToolsDir -Recurse -Force
+        }
+
         Log-Message "ADB not found. Downloading platform-tools..."
         DownloadFile "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" $adbZipPath
-        Expand-Archive -Path $adbZipPath -DestinationPath $tempDir -Force
-        $adbExePath = "$tempDir\platform-tools\adb.exe"
+        Expand-Archive -Path $adbZipPath -DestinationPath $appDataDir -Force
+        $adbExePath = "$platformToolsDir\adb.exe"
     }
     Log-Message "ADB located at: $adbExePath"
-    
+
     Log-Message "Starting ADB server..."
     & $adbExePath start-server *> $null
     Log-Message "ADB server started."
-    
+
     Log-Message "Waiting for Quest device connection..."
     Log-Message "You may need to unplug and plug your Quest back into your computer if it was already connected"
     Log-Message "Be sure to accept the authorization prompt in the headset"
 
-    
     do {
-        $result = & $adbExePath devices | Out-String
-        if ($result -match '(\w{14})\s+device') {
-            $deviceID = $matches[1]
-        }
+    $result = & $adbExePath devices | Out-String
+    if ($result -match '(\w{14})\s+device') {
+        $deviceID = $matches[1]
+    }
     } while (-not $deviceID)
     Log-Message "Quest device detected and authorized (Device ID: $deviceID)."
-    
-    $mbfLauncherPath = "$tempDir\artifact.zip"
-    Log-Message "Downloading MBF Launcher ZIP..."
-    DownloadFile $launcherDownloadUrl $mbfLauncherPath
-    
-    Log-Message "Extracting MBF Launcher ZIP..."
-    Expand-Archive -Path $mbfLauncherPath -DestinationPath $tempDir\mbf-launcher -Force
-    Log-Message "MBF Launcher extracted successfully."
-    
-    Log-Message "Searching for APK file in extracted contents..."
-    $apkPath = Get-ChildItem -Path $tempDir\mbf-launcher -Filter "*.apk" | Select-Object -ExpandProperty FullName
-    Log-Message "Found APK: $apkPath"
+    $apkPath = "$appDataDir\MBFLauncher.apk"
+
+    # Delete old APK if it exists
+    if (Test-Path $apkPath) {
+    Log-Message "Deleting existing MBF Launcher APK"
+    Remove-Item $apkPath -Force
+    }
+
+    Log-Message "Downloading MBF Launcher APK..."
+    DownloadFile $launcherDownloadUrl $apkPath
+    Log-Message "Download complete. APK saved to: $apkPath"
 
     Log-Message "Uninstalling currently installed MBF Launcher if it's installed"
     & $adbExePath -s $deviceID uninstall com.dantheman827.mbflauncher
-    
+
     Log-Message "Installing APK onto Quest device..."
     & $adbExePath -s $deviceID install $apkPath
     Log-Message "APK installed successfully!"
-    
+
     Log-Message "Launching MBF Launcher on Quest device..."
     & $adbExePath -s $deviceID shell monkey -p com.dantheman827.mbflauncher 1 *> $null
     Log-Message "MBF Launcher started on device."
-    
+
     Log-Message "Stopping ADB server..."
     & $adbExePath kill-server
     Log-Message "ADB server stopped."
-    
+
     Log-Message "Installation process completed!"
     Log-Message "MBF Launcher should be active and running on your headset now."
     Log-Message "You may close this app"
+
 })
 
 # Show the form
