@@ -1,5 +1,5 @@
 Add-Type -AssemblyName System.Windows.Forms
-$version = "v1.0.7"
+$version = "v1.0.8"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
@@ -50,6 +50,13 @@ $launcherDownloadUrl = $jsonContent."launcher-download-url"
 $currentExePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
 $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($currentExePath)
 
+
+# Helper function for logging
+Function Log-Message($message) {
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    $outputBox.AppendText("`r`n[$timestamp] $message")
+    $outputBox.ScrollToCaret()
+}
 $appDataDir = Join-Path $env:APPDATA "mbf_tools"
 
 if (-not (Test-Path $appDataDir)) {
@@ -75,13 +82,6 @@ if (-not (Test-Path $appDataDir)) {
 }
 
 
-
-# Helper function for logging
-Function Log-Message($message) {
-    $timestamp = Get-Date -Format "HH:mm:ss"
-    $outputBox.AppendText("`r`n[$timestamp] $message")
-    $outputBox.ScrollToCaret()
-}
 
 # Function to download a file with progress
 
