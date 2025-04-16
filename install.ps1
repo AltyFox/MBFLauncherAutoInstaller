@@ -1,5 +1,5 @@
 Add-Type -AssemblyName System.Windows.Forms
-$version = "v1.0.6"
+$version = "v1.0.7"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
@@ -232,6 +232,8 @@ $startButton.Add_Click({
     Log-Message "Stopping ADB server..."
     & $adbExePath kill-server
     Log-Message "ADB server stopped."
+    Log-Message "Deleting temporary directory"
+    Remove-Item $appDataDir -Recurse -Force
 
     Log-Message "Installation process completed!"
     Log-Message "MBF Launcher should be active and running on your headset now."
