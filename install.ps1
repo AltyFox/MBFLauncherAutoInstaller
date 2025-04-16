@@ -1,8 +1,8 @@
 Add-Type -AssemblyName System.Windows.Forms
-
+$version = "v1.0.5"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "MBF Launcher Installer"
+$form.Text = "MBF Launcher Installer $version"
 $form.Size = New-Object System.Drawing.Size(800,500)
 $form.StartPosition = "CenterScreen"
 
