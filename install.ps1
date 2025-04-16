@@ -1,5 +1,5 @@
 Add-Type -AssemblyName System.Windows.Forms
-$version = "v1.0.9"
+$version = "v1.0.10"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
@@ -202,12 +202,29 @@ $startButton.Add_Click({
     Log-Message "You may need to unplug and plug your Quest back into your computer if it was already connected"
     Log-Message "Be sure to accept the authorization prompt in the headset"
 
+    # Assuming you already have a Log-Message function and $form initialized elsewhere
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $lastLogTime = 0
+
     do {
-    $result = & $adbExePath devices | Out-String
-    if ($result -match '(\w{14})\s+device') {
-        $deviceID = $matches[1]
-    }
+        $result = & $adbExePath devices | Out-String
+        if ($result -match '(\w{14})\s+device') {
+            $deviceID = $matches[1]
+        }
+
+        # Log "waiting" every 5 seconds
+        if ($stopwatch.Elapsed.TotalSeconds -ge ($lastLogTime + 5)) {
+            Log-Message "waiting"
+            $lastLogTime = [math]::Floor($stopwatch.Elapsed.TotalSeconds)
+        }
+
+        # Process Windows Forms events to keep UI responsive
+        [System.Windows.Forms.Application]::DoEvents()
+
+        Start-Sleep -Milliseconds 10  # Sleep briefly to prevent CPU hogging
     } while (-not $deviceID)
+
     Log-Message "Quest device detected and authorized (Device ID: $deviceID)."
     $apkPath = "$appDataDir\MBFLauncher.apk"
 
