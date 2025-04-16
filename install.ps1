@@ -107,14 +107,15 @@ function DownloadFile($url, $targetFile)
 
    while ($count -gt 0)
    {
-       $targetStream.Write($buffer, 0, $count)
-       $count = $responseStream.Read($buffer, 0, $buffer.length)
-       $downloadedBytes += $count
+        [System.Windows.Forms.Application]::DoEvents()
+        $targetStream.Write($buffer, 0, $count)
+        $count = $responseStream.Read($buffer, 0, $buffer.length)
+        $downloadedBytes += $count
 
-       # Update progress bar
-       if ($progressBar -ne $null -and $totalLength -gt 0) {
-           $progressBar.Value = [System.Math]::Min(100, ([System.Math]::Floor($downloadedBytes/1024) / $totalLength) * 100)
-       }
+        # Update progress bar
+        if ($progressBar -ne $null -and $totalLength -gt 0) {
+            $progressBar.Value = [System.Math]::Min(100, ([System.Math]::Floor($downloadedBytes/1024) / $totalLength) * 100)
+        }
    }
 
    # Hide progress bar after completion
@@ -215,7 +216,7 @@ $startButton.Add_Click({
 
         # Log "waiting" every 5 seconds
         if ($stopwatch.Elapsed.TotalSeconds -ge ($lastLogTime + 5)) {
-            Log-Message "waiting"
+            Log-Message "Waiting, please connect your Quest to your computer and accept the prompt in your headset.."
             $lastLogTime = [math]::Floor($stopwatch.Elapsed.TotalSeconds)
         }
 
