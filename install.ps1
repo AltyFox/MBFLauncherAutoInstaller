@@ -1,5 +1,5 @@
 Add-Type -AssemblyName System.Windows.Forms
-$version = "v1.0.5"
+$version = "v1.0.6"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
@@ -169,9 +169,20 @@ $startButton.Add_Click({
 
         $platformToolsDir = "$appDataDir\platform-tools"
         if (Test-Path $platformToolsDir) {
+            # Kill any running adb.exe processes
+            $adbProcesses = Get-Process -Name "adb" -ErrorAction SilentlyContinue
+            if ($adbProcesses) {
+                Log-Message "Terminating running instances of adb.exe before deleting platform-tools."
+                $adbProcesses | ForEach-Object { Stop-Process -Id $_.Id -Force }
+                Log-Message "All running instances of adb.exe have been terminated."
+            } else {
+                Log-Message "No running instances of adb.exe found."
+            }
+        
             Log-Message "Deleting existing platform-tools directory"
             Remove-Item $platformToolsDir -Recurse -Force
         }
+        
 
         Log-Message "ADB not found. Downloading platform-tools..."
         DownloadFile "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" $adbZipPath
