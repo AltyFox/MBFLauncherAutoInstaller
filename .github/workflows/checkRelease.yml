@@ -33,6 +33,7 @@ jobs:
             echo "new_release=true" >> $GITHUB_ENV
           else
             echo "new_release=false" >> $GITHUB_ENV
+          fi
 
       - name: Update Config and Create Pull Request
         if: env.new_release == 'true'
