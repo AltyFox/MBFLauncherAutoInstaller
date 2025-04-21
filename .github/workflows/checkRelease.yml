@@ -1,0 +1,49 @@
+name: Check Latest Release and Update Config
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs daily at midnight
+  workflow_dispatch:
+
+jobs:
+  check-latest-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Get Latest Release
+        id: get_latest_release
+        uses: dawidd6/action-get-latest-release@v3
+        with:
+          owner: DanTheMan827
+          repo: mbf-launcher
+
+      - name: Check for New Release
+        id: check_new_release
+        run: |
+          echo "latest_release=${{ steps.get_latest_release.outputs.tag }}" >> $GITHUB_ENV
+          if [ -f config.json ]; then
+            current_version=$(jq -r '.version' config.json)
+          else
+            current_version=""
+          fi
+          echo "current_version=${current_version}" >> $GITHUB_ENV
+          if [ "$current_version" != "${{ steps.get_latest_release.outputs.tag }}" ]; then
+            echo "new_release=true" >> $GITHUB_ENV
+          else
+            echo "new_release=false" >> $GITHUB_ENV
+
+      - name: Update Config and Create Pull Request
+        if: env.new_release == 'true'
+        run: |
+          jq --arg version "${{ steps.get_latest_release.outputs.tag }}" '.version = $version' config.json > tmp.json && mv tmp.json config.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b update-config-${{ steps.get_latest_release.outputs.tag }}
+          git add config.json
+          git commit -m "Update config.json to version ${{ steps.get_latest_release.outputs.tag }}"
+          git push origin update-config-${{ steps.get_latest_release.outputs.tag }}
+          gh pr create --title "Update config.json to version ${{ steps.get_latest_release.outputs.tag }}" --body "Automatically created by GitHub Actions." --base main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
