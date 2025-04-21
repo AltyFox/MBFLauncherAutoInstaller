@@ -146,7 +146,6 @@ $throbber.Text = "Ready to begin! Click 'Start' to begin the installation proces
 
 function DownloadFile($url, $targetFile)
 {
-    Write-Host "Downloading $url to $targetFile"
    $uri = New-Object "System.Uri" "$url"
    $request = [System.Net.HttpWebRequest]::Create($uri)
    $request.set_Timeout(15000) # 15-second timeout
@@ -312,8 +311,44 @@ $startButton.Add_Click({
     Log-Message "Be sure to accept the authorization prompt in the headset"
     
     $throbber.Text = "Waiting for Quest device connection..."
+    
+    # Create a text field for IP:PORT input
+    $ipTextBox = New-Object System.Windows.Forms.TextBox
+    $ipTextBox.Location = New-Object System.Drawing.Point(430, 50) # Positioned to the right of the checkboxes
+    $ipTextBox.Size = New-Object System.Drawing.Size(200, 20)
+    $ipTextBox.Visible = $false
+    $form.Controls.Add($ipTextBox)
+
+    if ($debugCheckBox.Checked) {
+        $ipTextBox.Visible = $true
+        $ipTextBox.Focus()
+    } else {
+        $ipTextBox.Visible = $false
+    }
+
+    # Handle Enter key press in the IP text box
+    $ipTextBox.Add_KeyDown({
+        if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+            $ip = $ipTextBox.Text
+            if ($ip -match '^\d{1,3}(\.\d{1,3}){3}:\d+$') {
+                Log-Message "Attempting to connect to device at $ip..."
+                $connectResult = & $adbExePath connect $ip | Out-String
+                Log-Message $connectResult
+                if ($connectResult -match 'connected to') {
+                    Log-Message "Successfully connected to $ip."
+                    $debugging = $true
+                    $ipTextBox.Visible = $false
+                } else {
+                    Log-Message "Failed to connect to $ip. Please check the IP:PORT and try again."
+                }
+            } else {
+                Log-Message "Invalid IP:PORT format. Please enter a valid IP:PORT."
+            }
+        }
+    })
 
     do {
+
         $result = & $adbExePath devices | Out-String
         if ($debugging) {
             $lines = $result -split "`r`n"
@@ -324,9 +359,7 @@ $startButton.Add_Click({
             if ($result -match '(\w{14})\s+device') {
                 $deviceID = $matches[1]
             }
-        }
-
-        
+        }      
         # Update the progress bar to simulate an indeterminate scrolling effect
         if ($progressBar.Style -ne "Marquee") {
             $progressBar.Style = "Marquee"
@@ -340,6 +373,7 @@ $startButton.Add_Click({
         # Remove the throbber when the device is found
         if ($deviceID) {
             $progressBar.Visible = $false
+            $progressBar.Style = "Continuous"
         }
 
         # Process Windows Forms events to keep UI responsive
@@ -373,13 +407,8 @@ $startButton.Add_Click({
     Log-Message "Stopping ADB server..."
     & $adbExePath kill-server
     Log-Message "ADB server stopped."
-    Log-Message "Deleting temporary directory"
-    Remove-Item $appDataDir -Recurse -Force
 
-    Log-Message "Installation process completed!"
-    Log-Message "MBF Launcher should be active and running on your headset now."
-    Log-Message "You may close this app"
-
+    
     # Ask if the user wants to view a video on how to use the app
     $result = [System.Windows.Forms.MessageBox]::Show(
         "Would you like to watch a video on how to use the app?",
@@ -404,36 +433,53 @@ $startButton.Add_Click({
         # Extract the zip file
         Expand-Archive -Path $videoZipPath -DestinationPath $appDataDir -Force
 
-        # Set the path to the extracted video file
-        $videoPath = "$appDataDir\how-to-use.mp4"      
-        Log-Message "Tutorial video downloaded to: $videoPath"
         $videoForm = New-Object System.Windows.Forms.Form
         $videoForm.Text = "Tutorial Video"
         $videoForm.Size = New-Object System.Drawing.Size(800, 600)
         $videoForm.StartPosition = "CenterScreen"
         $videoForm.Icon = $form.Icon
-
-        # Use Windows Media Player ActiveX control to play the video
-        $mediaPlayer = New-Object System.Windows.Forms.Integration.ElementHost
-        $mediaPlayer.Dock = "Fill"
-        $mediaPlayer.Child = (New-Object System.Windows.Controls.MediaElement -Property @{
-            Source = [Uri]::new($videoPath)
-            LoadedBehavior = "Play"
-            UnloadedBehavior = "Stop"
-            Stretch = "Uniform"
-        })
-
-        $videoForm.Controls.Add($mediaPlayer)
+        $webBrowser = New-Object System.Windows.Forms.WebBrowser
+        $webBrowser.Dock = "Fill"
+        $webBrowser.DocumentText = @"
+                    <html>
+                    <head>
+                        <style>
+                            body {
+                                margin: 0;
+                                overflow: hidden;
+                            }
+                            iframe {
+                                width: 100%;
+                                height: 100%;
+                                border: none;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <object width='100%' height='100%'>
+                                <param name='src' value='$videoPath' />
+                                <embed width="100%" height="100%" src="$videoPath" type="video/mp4"></embed>
+                                Your browser does not support the object tag.
+                            </object>
+                        </body>      </html>"
+"@
 
         # Show the video form
-        [void]$videoForm.ShowDialog()
-        Log-Message "Tutorial video displayed in a new window."
         $videoForm.Controls.Add($webBrowser)
-
-        # Show the video form
         [void]$videoForm.ShowDialog()
         Log-Message "Tutorial video displayed in a new window."
+
     }
+
+    Log-Message "Deleting temporary directory"
+    Remove-Item $appDataDir -Recurse -Force
+
+    Log-Message "Installation process completed!"
+    Log-Message "MBF Launcher should be active and running on your headset now."
+    Log-Message "If you need help, ask in #quest-standalone-help in BSMG. Join the Discord at: http://discord.gg/beatsabermods"
+    Log-Message "You may also DM @alteran for assistance."
+    Log-Message "You can now close this window."
+
     $throbber.Text = ""
 
 })
