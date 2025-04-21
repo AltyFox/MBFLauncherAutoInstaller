@@ -1,108 +1,107 @@
 name: Build Installer
 
 on:
-    push:
-        branches:
-            - main
-        paths:
-        - install.ps1
-    workflow_dispatch:
+  push:
+    branches:
+    - main
+    paths:
+    - install.ps1
+  workflow_dispatch:
+
 
 jobs:
-    build:
-        runs-on: windows-latest
+  build:
+    runs-on: windows-latest
 
-        steps:
-              - name: Checkout repository
-                uses: actions/checkout@v4
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-              - name: Get first line of commit message
-                id: get_commit_message
-                run: |
-                  $message = (git log -1 --pretty=%B | Out-String).Split("`n")[0].Trim()
-                  echo "message=$message" >> $env:GITHUB_ENV
-                shell: pwsh
+    - name: Get first line of commit message
+      id: get_commit_message
+      run: |
+        $message = (git log -1 --pretty=%B | Out-String).Split("`n")[0].Trim()
+        echo "message=$message" >> $env:GITHUB_ENV
+      shell: pwsh
 
-              - name: Check if commit message is a version
-                id: check_version
-                run: |
-                  if ($env:message -match '^v[0-9]+\.[0-9]+\.[0-9]+') {
-                  echo "is_version=true" >> $env:GITHUB_ENV
-                  echo "version=$env:message" >> $env:GITHUB_ENV
-                  } else {
-                  echo "is_version=false" >> $env:GITHUB_ENV
-                  }
-                shell: pwsh
+    - name: Check if commit message is a version
+      id: check_version
+      run: |
+        if ($env:message -match '^v[0-9]+\.[0-9]+\.[0-9]+') {
+        echo "is_version=true" >> $env:GITHUB_ENV
+        echo "version=$env:message" >> $env:GITHUB_ENV
+        } else {
+        echo "is_version=false" >> $env:GITHUB_ENV
+        }
+      shell: pwsh
 
-              - name: Set version in install.ps1
-                run: |
-                  import os
-                  import re
+    - name: Set version in install.ps1
+      run: |
+        import os
+        import re
 
-                  is_version = os.getenv('is_version')
-                  version = os.getenv('version')
-                  commit_id = os.popen('git rev-parse --short HEAD').read().strip()
+        is_version = os.getenv('is_version')
+        version = os.getenv('version')
+        commit_id = os.popen('git rev-parse --short HEAD').read().strip()
 
-                  with open('install.ps1', 'r') as file:
-                    content = file.read()
+        with open('install.ps1', 'r') as file:
+          content = file.read()
 
-                  if is_version == 'true':
-                    updated_content = re.sub(r'\$version = ".*"', f'$version = "{version}"', content)
-                  else:
-                    updated_content = re.sub(r'\$version = ".*"', f'$version = "{commit_id}"', content)
+        if is_version == 'true':
+          updated_content = re.sub(r'\$version = ".*"', f'$version = "{version}"', content)
+        else:
+          updated_content = re.sub(r'\$version = ".*"', f'$version = "{commit_id}"', content)
 
-                  with open('install.ps1', 'w') as file:
-                    file.write(updated_content)
-                shell: python
-    
-              - name: Download favicon.png
-                run: |
-                  Invoke-WebRequest -Uri "https://mbf.bsquest.xyz/favicon.png" -OutFile "favicon.png"
-                shell: pwsh
+        with open('install.ps1', 'w') as file:
+          file.write(updated_content)
+      shell: python
 
-              - name: Install ps2exe
-                run: Install-Module -Name ps2exe -Force -Scope CurrentUser -AllowClobber
-                shell: pwsh
-    
-              - name: Convert the PNG to an Icon using ImageMagick
-                run: magick favicon.png favicon.ico
+    - name: Download favicon.png
+      run: |
+        Invoke-WebRequest -Uri "https://mbf.bsquest.xyz/favicon.png" -OutFile "favicon.png"
+      shell: pwsh
 
+    - name: Install ps2exe
+      run: Install-Module -Name ps2exe -Force -Scope CurrentUser -AllowClobber
+      shell: pwsh
 
+    - name: Convert the PNG to an Icon using ImageMagick
+      run: magick favicon.png favicon.ico
 
-              - name: Compile installer.ps1 to installer.exe
-                run: |
-                  $year = (Get-Date).Year
-                  Invoke-ps2exe -inputFile .\install.ps1 -outputFile .\MBF-Launcher-Installer.exe -verbose -iconFile .\favicon.ico -noConsole `
-                  -product "MBF-Launcher-Installer" `
-                  -copyright "$year" `
-                  -description "This automatically installs the drivers needed to talk to your Quest, and installs MBF Launcher to your headset"
-                shell: pwsh
-    
-              - name: Upload all working files as artifacts
-                uses: actions/upload-artifact@v4
-                with:
-                  name: MBF-Launcher-Working-Files
-                  path: ./
-     
-              - name: Create Release
-                if: env.is_version == 'true'
-                id: create_release
-                uses: actions/create-release@v1
-                env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                with:
-                  tag_name: ${{ env.version }}   
-                  release_name: Release ${{ env.version }}  
-                  draft: false
-                  prerelease: false
-    
-              - name: Upload installer to release
-                if: env.is_version == 'true'
-                uses: actions/upload-release-asset@v1
-                env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                with:
-                    upload_url: ${{ steps.create_release.outputs.upload_url }}
-                    asset_path: ./MBF-Launcher-Installer.exe
-                    asset_name: MBF-Launcher-Installer.exe
-                    asset_content_type: application/octet-streamy
+    - name: Compile installer.ps1 to installer.exe
+      run: |
+        $year = (Get-Date).Year
+        Invoke-ps2exe -inputFile .\install.ps1 -outputFile .\MBF-Launcher-Installer.exe -verbose -iconFile .\favicon.ico -noConsole `
+        -product "MBF-Launcher-Installer" `
+        -copyright "$year" `
+        -description "This automatically installs the drivers needed to talk to your Quest, and installs MBF Launcher to your headset"
+      shell: pwsh
+
+    - name: Upload all working files as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: MBF-Launcher-Working-Files
+        path: ./
+
+    - name: Create Release
+      if: env.is_version == 'true'
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.version }}
+        release_name: Release ${{ env.version }}
+        draft: false
+        prerelease: false
+
+    - name: Upload installer to release
+      if: env.is_version == 'true'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./MBF-Launcher-Installer.exe
+        asset_name: MBF-Launcher-Installer.exe
+        asset_content_type: application/octet-streamy
