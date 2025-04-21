@@ -1,5 +1,5 @@
 Add-Type -AssemblyName System.Windows.Forms
-$version = "v1.0.15"
+$version = "v1.0.16"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
@@ -65,12 +65,6 @@ $form.Add_FormClosing({
     [System.Environment]::Exit(0)
 })
 
-# Download JSON file and parse "launcher-download-url"
-$jsonUrl = "https://raw.githubusercontent.com/AltyFox/MBFLauncherAutoInstaller/refs/heads/main/config.json"
-$jsonFilePath = "$env:TEMP\config.json"
-Invoke-WebRequest -Uri $jsonUrl -OutFile $jsonFilePath
-$jsonContent = Get-Content -Path $jsonFilePath -Raw | ConvertFrom-Json
-$launcherDownloadUrl = $jsonContent."launcher-download-url"
 
 
 # Get the icon of the current executable and set it as the form's icon
@@ -214,7 +208,32 @@ $startButton.Add_Click({
     Log-Message "ADB server started."
 
     $apkPath = "$appDataDir\MBFLauncher.apk"
+    # Fetch the latest release information from the GitHub API
+    $repoOwner = "DanTheMan827"
+    $repoName = "mbf-launcher"
+    $apiUrl = "https://api.github.com/repos/$repoOwner/$repoName/releases"
 
+    # Set User-Agent header to avoid 403 errors
+    $headers = @{
+        "User-Agent" = "MBFLauncherAutoInstaller"
+        "Accept" = "application/vnd.github+json"
+        "X-GitHub-Api-Version" = "2022-11-28"
+    }
+
+    Log-Message "Fetching all releases information from GitHub..."
+    try {
+        $releases = Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Get
+        $latestRelease = $releases | Sort-Object { $_.published_at } -Descending | Select-Object -First 1
+        $latestReleaseUrl = $latestRelease.assets | Where-Object { $_.name -like "*.apk" } | Select-Object -ExpandProperty browser_download_url
+        if (-not $latestReleaseUrl) {
+            throw "No APK asset found in the latest release."
+        }
+        $launcherDownloadUrl = $latestReleaseUrl
+        Log-Message "Latest release APK URL: $launcherDownloadUrl"
+    } catch {
+        Log-Message "Error fetching the releases: $_"
+        throw
+    }
 
     Log-Message "Downloading MBF Launcher APK..."
     DownloadFile $launcherDownloadUrl $apkPath
