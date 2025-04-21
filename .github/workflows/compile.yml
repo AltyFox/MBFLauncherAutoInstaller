@@ -33,16 +33,29 @@ jobs:
                 shell: pwsh
 
               - name: Update version in install.ps1
+                shell: cmd
                 run: |
-                    if ($env:is_version -eq 'true') {
-                    (Get-Content .\install.ps1) -replace '\$version = ".*"', "\$version = `" + [regex]::Escape($env:version) + "`"" | Set-Content .\install.ps1
-                    } else {
-                    $commitId = (git rev-parse --short HEAD)
-                    (Get-Content .\install.ps1) -replace '\$version = ".*"', "\$version = `" + [regex]::Escape($commitId) + "`"" | Set-Content .\install.ps1
-                    }
-                    (Get-Content .\install.ps1 -First 1) | Write-Host
-                shell: pwsh
-    
+                  @echo off
+                  setlocal enabledelayedexpansion
+                  if "%is_version%"=="true" (
+                    set "replacement=$version = \"%version%\""
+                  ) else (
+                    for /f %%i in ('git rev-parse --short HEAD') do set "replacement=$version = \"%%i\""
+                  )
+
+                  (for /f "usebackq delims=" %%a in (`type install.ps1`) do (
+                    set "line=%%a"
+                    if "!line!"=="!line:$version = =!" (
+                      echo !replacement!
+                    ) else (
+                      echo !line!
+                    )
+                  )) > install.ps1.tmp
+
+                  move /y install.ps1.tmp install.ps1 >nul
+                  for /f "usebackq delims=" %%a in (`type install.ps1 ^| findstr /n "^" ^| findstr "^1:"`) do echo %%a
+
+          
               - name: Download favicon.png
                 run: |
                   Invoke-WebRequest -Uri "https://mbf.bsquest.xyz/favicon.png" -OutFile "favicon.png"
