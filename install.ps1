@@ -1,10 +1,12 @@
 Add-Type -AssemblyName System.Windows.Forms
-$version = "v1.0.12"
+$version = "v1.0.13"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
 $form.Size = New-Object System.Drawing.Size(800,500)
 $form.StartPosition = "CenterScreen"
+$form.FormBorderStyle = "FixedDialog"
+$form.MaximizeBox = $false
 
 # Create Label
 $label = New-Object System.Windows.Forms.Label
@@ -36,7 +38,30 @@ $startButton = New-Object System.Windows.Forms.Button
 $startButton.Location = New-Object System.Drawing.Point(10,400)
 $startButton.Size = New-Object System.Drawing.Size(100,40)
 $startButton.Text = "Start"
+$isForceClosed = 0
 $form.Controls.Add($startButton)
+
+$form.Add_FormClosing({
+    $global:isForceClosed = 1
+    Log-Message "Stopping any ongoing processes and force closing the application."
+    
+    # Stop ADB server if running
+    if ($adbExePath -and (Get-Process -Name "adb" -ErrorAction SilentlyContinue)) {
+        Log-Message "Stopping ADB server..."
+        & $adbExePath kill-server
+        Log-Message "ADB server stopped."
+    }
+
+    # Clean up temporary files
+    if (Test-Path $appDataDir) {
+        Log-Message "Deleting temporary directory..."
+        Remove-Item $appDataDir -Recurse -Force
+        Log-Message "Temporary directory deleted."
+    }
+
+    Log-Message "Application force closed."
+    [System.Environment]::Exit(0)
+})
 
 # Download JSON file and parse "launcher-download-url"
 $jsonUrl = "https://raw.githubusercontent.com/AltyFox/MBFLauncherAutoInstaller/refs/heads/main/config.json"
@@ -211,8 +236,15 @@ $startButton.Add_Click({
         [System.Windows.Forms.Application]::DoEvents()
 
         Start-Sleep -Milliseconds 10  # Sleep briefly to prevent CPU hogging
-    } while (-not $deviceID)
 
+        # Exit loop if force closed
+        if ( $global:isForceClosed -eq 1) {
+            Log-Message "Installation process aborted due to application closure."
+            break
+        }
+        Write-Host "isForceClosed value: $isForceClosed"
+    } while (-not $deviceID)
+    
     Log-Message "Quest device detected and authorized (Device ID: $deviceID)."
     $apkPath = "$appDataDir\MBFLauncher.apk"
 
