@@ -403,73 +403,16 @@ $startButton.Add_Click({
     & $adbExePath -s $deviceID shell monkey -p com.dantheman827.mbflauncher 1 *> $null
     Log-Message "MBF Launcher started on device."
 
+    Log-Message "Switching ADB to TCP/IP mode on port 5555..."
+    & $adbExePath -s $deviceID tcpip 5555
+    Log-Message "ADB is now in TCP/IP mode on port 5555."
+    Log-Message "This should make MBF Launcher auto connect to itself quickly."
+
     $throbber.Text = "Finishing up..."
     Log-Message "Stopping ADB server..."
     & $adbExePath kill-server
     Log-Message "ADB server stopped."
 
-    
-    # Ask if the user wants to view a video on how to use the app
-    $result = [System.Windows.Forms.MessageBox]::Show(
-        "Would you like to watch a video on how to use the app?",
-        "View Tutorial",
-        [System.Windows.Forms.MessageBoxButtons]::YesNo,
-        [System.Windows.Forms.MessageBoxIcon]::Question
-    )
-
-    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
-        # Download the tutorial video to the appdata folder
-        $videoPath = "$appDataDir\how-to-use.mp4"
-        if (Test-Path $videoPath) {
-            Log-Message "Deleting existing tutorial video..."
-            Remove-Item $videoPath -Force
-            Log-Message "Existing tutorial video deleted."
-        }
-
-        Log-Message "Downloading tutorial video..."
-        $videoZipPath = "$appDataDir\how-to-use.zip"
-        DownloadFile "https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/how-to-use.zip" $videoZipPath
-
-        # Extract the zip file
-        Expand-Archive -Path $videoZipPath -DestinationPath $appDataDir -Force
-
-        $videoForm = New-Object System.Windows.Forms.Form
-        $videoForm.Text = "Tutorial Video"
-        $videoForm.Size = New-Object System.Drawing.Size(800, 600)
-        $videoForm.StartPosition = "CenterScreen"
-        $videoForm.Icon = $form.Icon
-        $webBrowser = New-Object System.Windows.Forms.WebBrowser
-        $webBrowser.Dock = "Fill"
-        $webBrowser.DocumentText = @"
-                    <html>
-                    <head>
-                        <style>
-                            body {
-                                margin: 0;
-                                overflow: hidden;
-                            }
-                            iframe {
-                                width: 100%;
-                                height: 100%;
-                                border: none;
-                                }
-                            </style>
-                        </head>
-                        <body>
-                            <object width='100%' height='100%'>
-                                <param name='src' value='$videoPath' />
-                                <embed width="100%" height="100%" src="$videoPath" type="video/mp4"></embed>
-                                Your browser does not support the object tag.
-                            </object>
-                        </body>      </html>"
-"@
-
-        # Show the video form
-        $videoForm.Controls.Add($webBrowser)
-        [void]$videoForm.ShowDialog()
-        Log-Message "Tutorial video displayed in a new window."
-
-    }
 
     Log-Message "Deleting temporary directory"
     Remove-Item $appDataDir -Recurse -Force
