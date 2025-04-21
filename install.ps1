@@ -399,6 +399,11 @@ $startButton.Add_Click({
     & $adbExePath -s $deviceID install $apkPath
     Log-Message "APK installed successfully!"
 
+    Log-Message "Granting necessary permissions to the MBF Launcher..."
+    & $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.WRITE_SECURE_SETTINGS
+    & $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.READ_LOGS
+    Log-Message "Permissions granted successfully."
+
     Log-Message "Launching MBF Launcher on Quest device..."
     & $adbExePath -s $deviceID shell monkey -p com.dantheman827.mbflauncher 1 *> $null
     Log-Message "MBF Launcher started on device."
