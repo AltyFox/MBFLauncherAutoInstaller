@@ -18,6 +18,7 @@ jobs:
         with:
           owner: DanTheMan827
           repo: mbf-launcher
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check for New Release
         id: check_new_release
