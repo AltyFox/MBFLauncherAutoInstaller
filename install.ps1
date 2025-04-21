@@ -1,5 +1,5 @@
 Add-Type -AssemblyName System.Windows.Forms
-$version = "v1.0.13"
+$version = "v1.0.14"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
@@ -40,6 +40,8 @@ $startButton.Size = New-Object System.Drawing.Size(100,40)
 $startButton.Text = "Start"
 $isForceClosed = 0
 $form.Controls.Add($startButton)
+
+
 
 $form.Add_FormClosing({
     $global:isForceClosed = 1
@@ -211,11 +213,17 @@ $startButton.Add_Click({
     & $adbExePath start-server *> $null
     Log-Message "ADB server started."
 
+    $apkPath = "$appDataDir\MBFLauncher.apk"
+
+
+    Log-Message "Downloading MBF Launcher APK..."
+    DownloadFile $launcherDownloadUrl $apkPath
+    Log-Message "Download complete. APK saved to: $apkPath"
+
     Log-Message "Waiting for Quest device connection..."
     Log-Message "You may need to unplug and plug your Quest back into your computer if it was already connected"
     Log-Message "Be sure to accept the authorization prompt in the headset"
-
-    # Assuming you already have a Log-Message function and $form initialized elsewhere
+ 
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastLogTime = 0
@@ -236,22 +244,15 @@ $startButton.Add_Click({
         [System.Windows.Forms.Application]::DoEvents()
 
         Start-Sleep -Milliseconds 10  # Sleep briefly to prevent CPU hogging
-
         # Exit loop if force closed
         if ( $global:isForceClosed -eq 1) {
             Log-Message "Installation process aborted due to application closure."
             break
         }
-        Write-Host "isForceClosed value: $isForceClosed"
+        
     } while (-not $deviceID)
     
     Log-Message "Quest device detected and authorized (Device ID: $deviceID)."
-    $apkPath = "$appDataDir\MBFLauncher.apk"
-
-
-    Log-Message "Downloading MBF Launcher APK..."
-    DownloadFile $launcherDownloadUrl $apkPath
-    Log-Message "Download complete. APK saved to: $apkPath"
 
     Log-Message "Uninstalling currently installed MBF Launcher if it's installed"
     & $adbExePath -s $deviceID uninstall com.dantheman827.mbflauncher
