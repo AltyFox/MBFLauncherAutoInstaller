@@ -419,6 +419,7 @@ $startButton.Add_Click({
 
     Log-Message "Installation process completed!"
     Log-Message "MBF Launcher should be active and running on your headset now."
+    Log-Message "You will see more ADB authorization prompts in the headset, please accept them."
     Log-Message "If you need help, ask in #quest-standalone-help in BSMG. Join the Discord at: http://discord.gg/beatsabermods"
     Log-Message "You may also DM @alteran for assistance."
     Log-Message "You can now close this window."
