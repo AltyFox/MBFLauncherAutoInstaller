@@ -14,7 +14,7 @@ jobs:
               - name: Checkout repository
                 uses: actions/checkout@v4
 
-                              - name: Get first line of commit message
+              - name: Get first line of commit message
                 id: get_commit_message
                 run: |
                   $message = (git log -1 --pretty=%B | Out-String).Split("`n")[0].Trim()
