@@ -146,6 +146,7 @@ $throbber.Text = "Ready to begin! Click 'Start' to begin the installation proces
 
 function DownloadFile($url, $targetFile)
 {
+    Write-Host "Downloading $url to $targetFile"
    $uri = New-Object "System.Uri" "$url"
    $request = [System.Net.HttpWebRequest]::Create($uri)
    $request.set_Timeout(15000) # 15-second timeout
@@ -378,6 +379,61 @@ $startButton.Add_Click({
     Log-Message "Installation process completed!"
     Log-Message "MBF Launcher should be active and running on your headset now."
     Log-Message "You may close this app"
+
+    # Ask if the user wants to view a video on how to use the app
+    $result = [System.Windows.Forms.MessageBox]::Show(
+        "Would you like to watch a video on how to use the app?",
+        "View Tutorial",
+        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+        [System.Windows.Forms.MessageBoxIcon]::Question
+    )
+
+    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+        # Download the tutorial video to the appdata folder
+        $videoPath = "$appDataDir\how-to-use.mp4"
+        if (Test-Path $videoPath) {
+            Log-Message "Deleting existing tutorial video..."
+            Remove-Item $videoPath -Force
+            Log-Message "Existing tutorial video deleted."
+        }
+
+        Log-Message "Downloading tutorial video..."
+        $videoZipPath = "$appDataDir\how-to-use.zip"
+        DownloadFile "https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/how-to-use.zip" $videoZipPath
+
+        # Extract the zip file
+        Expand-Archive -Path $videoZipPath -DestinationPath $appDataDir -Force
+
+        # Set the path to the extracted video file
+        $videoPath = "$appDataDir\how-to-use.mp4"      
+        Log-Message "Tutorial video downloaded to: $videoPath"
+        $videoForm = New-Object System.Windows.Forms.Form
+        $videoForm.Text = "Tutorial Video"
+        $videoForm.Size = New-Object System.Drawing.Size(800, 600)
+        $videoForm.StartPosition = "CenterScreen"
+        $videoForm.Icon = $form.Icon
+
+        # Use Windows Media Player ActiveX control to play the video
+        $mediaPlayer = New-Object System.Windows.Forms.Integration.ElementHost
+        $mediaPlayer.Dock = "Fill"
+        $mediaPlayer.Child = (New-Object System.Windows.Controls.MediaElement -Property @{
+            Source = [Uri]::new($videoPath)
+            LoadedBehavior = "Play"
+            UnloadedBehavior = "Stop"
+            Stretch = "Uniform"
+        })
+
+        $videoForm.Controls.Add($mediaPlayer)
+
+        # Show the video form
+        [void]$videoForm.ShowDialog()
+        Log-Message "Tutorial video displayed in a new window."
+        $videoForm.Controls.Add($webBrowser)
+
+        # Show the video form
+        [void]$videoForm.ShowDialog()
+        Log-Message "Tutorial video displayed in a new window."
+    }
     $throbber.Text = ""
 
 })
