@@ -32,13 +32,13 @@ jobs:
                   }
                 shell: pwsh
 
-              - name: Set version in installer.ps1
+              - name: Set version in install.ps1
                 run: |
                   if ($env:is_version -eq 'true') {
-                  (Get-Content -Path .\installer.ps1) -replace '\$version = ".*"', "\$version = `"$env:version`"" | Set-Content -Path .\installer.ps1
+                  (Get-Content -Path .\install.ps1) -replace '\$version = ".*"', "\$version = `"$env:version`"" | Set-Content -Path .\install.ps1
                   } else {
                   $commitId = (git rev-parse --short HEAD)
-                  (Get-Content -Path .\installer.ps1) -replace '\$version = ".*"', "\$version = `"$commitId`"" | Set-Content -Path .\installer.ps1
+                  (Get-Content -Path .\install.ps1) -replace '\$version = ".*"', "\$version = `"$commitId`"" | Set-Content -Path .\install.ps1
                   }
                 shell: pwsh
     
