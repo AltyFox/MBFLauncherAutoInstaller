@@ -1,5 +1,5 @@
 Add-Type -AssemblyName System.Windows.Forms
-$version = "v1.0.21"
+$version = "v1.0.22"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
@@ -41,9 +41,18 @@ $startButton.Text = "Start"
 $isForceClosed = 0
 $form.Controls.Add($startButton)
 
+$throbber = New-Object System.Windows.Forms.Label
+$throbber.Location = New-Object System.Drawing.Point(120, 410)
+$throbber.Size = New-Object System.Drawing.Size(650, 20)
+$throbber.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Regular)
+$throbber.Text = ""
+$form.Controls.Add($throbber)
+
 
 
 $form.Add_FormClosing({
+    $throbber.Text = ""
+    $progressBar.Visible = $false
     $global:isForceClosed = 1
     Log-Message "Stopping any ongoing processes and force closing the application."
     
@@ -70,6 +79,7 @@ $form.Add_FormClosing({
 # Get the icon of the current executable and set it as the form's icon
 $currentExePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
 $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($currentExePath)
+# Create a spinning throbber
 
 
 # Helper function for logging
@@ -104,7 +114,7 @@ if ($adbProcesses) {
 }
 
 # Function to download a file with progress
-
+$throbber.Text = "Ready to begin! Click 'Start' to begin the installation process."
 
 function DownloadFile($url, $targetFile)
 {
@@ -157,7 +167,7 @@ function DownloadFile($url, $targetFile)
 # Main Installation Function
 $startButton.Add_Click({
     $startButton.Enabled = $false
-    
+    $throbber.Text = "Installing USB Driver.."
     Log-Message "Downloading the USB driver needed to access your Quest"
     $androidUSBPath = "$appDataDir\AndroidUSB.zip"
 
@@ -181,14 +191,14 @@ $startButton.Add_Click({
 
     if ($messageBox -eq [System.Windows.Forms.DialogResult]::OK) {
         $infPath = "$androidUSBExtractPath\android_winusb.inf"
-        Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs
+        Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs | Wait-Process
         Log-Message "USB driver installed successfully."
     }
 
 
     $adbZipPath = "$appDataDir\platform-tools.zip"
     
-
+    $throbber.Text = "Downloading ADB binaries to talk to your Quest"
     $platformToolsDir = "$appDataDir\platform-tools"
     if (Test-Path $platformToolsDir) {
     
@@ -206,6 +216,9 @@ $startButton.Add_Click({
     Log-Message "Starting ADB server..."
     & $adbExePath start-server *> $null
     Log-Message "ADB server started."
+
+
+    $throbber.Text = "Fetching latest MBF Launcher APK from GitHub"
 
     $apkPath = "$appDataDir\MBFLauncher.apk"
     # Fetch the latest release information from the GitHub API
@@ -242,10 +255,8 @@ $startButton.Add_Click({
     Log-Message "Waiting for Quest device connection..."
     Log-Message "You may need to unplug and plug your Quest back into your computer if it was already connected"
     Log-Message "Be sure to accept the authorization prompt in the headset"
- 
-
-    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    $lastLogTime = 0
+    
+    $throbber.Text = "Waiting for Quest device connection..."
 
     do {
         $result = & $adbExePath devices | Out-String
@@ -253,10 +264,20 @@ $startButton.Add_Click({
             $deviceID = $matches[1]
         }
 
-        # Log "waiting" every 5 seconds
-        if ($stopwatch.Elapsed.TotalSeconds -ge ($lastLogTime + 5)) {
-            Log-Message "Waiting, please connect your Quest to your computer and accept the prompt in your headset.."
-            $lastLogTime = [math]::Floor($stopwatch.Elapsed.TotalSeconds)
+        
+        # Update the progress bar to simulate an indeterminate scrolling effect
+        if ($progressBar.Style -ne "Marquee") {
+            $progressBar.Style = "Marquee"
+            $progressBar.MarqueeAnimationSpeed = 30
+            $progressBar.Visible = $true
+        }
+        
+        # Process Windows Forms events to keep UI responsive
+        [System.Windows.Forms.Application]::DoEvents()
+
+        # Remove the throbber when the device is found
+        if ($deviceID) {
+            $progressBar.Visible = $false
         }
 
         # Process Windows Forms events to keep UI responsive
@@ -272,7 +293,9 @@ $startButton.Add_Click({
     } while (-not $deviceID)
     
     Log-Message "Quest device detected and authorized (Device ID: $deviceID)."
-
+    
+    
+    $throbber.Text = "Installing MBF Launcher to your Quest device"
     Log-Message "Uninstalling currently installed MBF Launcher if it's installed"
     & $adbExePath -s $deviceID uninstall com.dantheman827.mbflauncher
 
@@ -284,6 +307,7 @@ $startButton.Add_Click({
     & $adbExePath -s $deviceID shell monkey -p com.dantheman827.mbflauncher 1 *> $null
     Log-Message "MBF Launcher started on device."
 
+    $throbber.Text = "Finishing up..."
     Log-Message "Stopping ADB server..."
     & $adbExePath kill-server
     Log-Message "ADB server stopped."
@@ -293,6 +317,7 @@ $startButton.Add_Click({
     Log-Message "Installation process completed!"
     Log-Message "MBF Launcher should be active and running on your headset now."
     Log-Message "You may close this app"
+    $throbber.Text = ""
 
 })
 
