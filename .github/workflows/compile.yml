@@ -34,13 +34,24 @@ jobs:
 
               - name: Set version in install.ps1
                 run: |
-                  if ($env:is_version -eq 'true') {
-                  (Get-Content -Path .\install.ps1) -replace '\$version = ".*"', "\$version = `"$env:version`"" | Set-Content -Path .\install.ps1
-                  } else {
-                  $commitId = (git rev-parse --short HEAD)
-                  (Get-Content -Path .\install.ps1) -replace '\$version = ".*"', "\$version = `"$commitId`"" | Set-Content -Path .\install.ps1
-                  }
-                shell: pwsh
+                  import os
+                  import re
+
+                  is_version = os.getenv('is_version')
+                  version = os.getenv('version')
+                  commit_id = os.popen('git rev-parse --short HEAD').read().strip()
+
+                  with open('install.ps1', 'r') as file:
+                    content = file.read()
+
+                  if is_version == 'true':
+                    updated_content = re.sub(r'\$version = ".*"', f'$version = "{version}"', content)
+                  else:
+                    updated_content = re.sub(r'\$version = ".*"', f'$version = "{commit_id}"', content)
+
+                  with open('install.ps1', 'w') as file:
+                    file.write(updated_content)
+                shell: python
     
               - name: Download favicon.png
                 run: |
@@ -65,11 +76,11 @@ jobs:
                   -description "This automatically installs the drivers needed to talk to your Quest, and installs MBF Launcher to your headset"
                 shell: pwsh
     
-              - name: Upload installer.exe as artifact
+              - name: Upload all working files as artifacts
                 uses: actions/upload-artifact@v4
                 with:
-                  name: MBF-Launcher-Installer
-                  path: MBF-Launcher-Installer.exe
+                  name: MBF-Launcher-Working-Files
+                  path: ./
      
               - name: Create Release
                 if: env.is_version == 'true'
