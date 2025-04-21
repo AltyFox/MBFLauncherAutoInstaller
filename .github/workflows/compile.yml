@@ -13,20 +13,8 @@ jobs:
         steps:
               - name: Checkout repository
                 uses: actions/checkout@v4
-    
-              - name: Download favicon.png
-                run: |
-                  Invoke-WebRequest -Uri "https://mbf.bsquest.xyz/favicon.png" -OutFile "favicon.png"
-                shell: pwsh
 
-              - name: Install ps2exe
-                run: Install-Module -Name ps2exe -Force -Scope CurrentUser -AllowClobber
-                shell: pwsh
-    
-              - name: Convert the PNG to an Icon using ImageMagick
-                run: magick favicon.png favicon.ico
-
-              - name: Get first line of commit message
+                              - name: Get first line of commit message
                 id: get_commit_message
                 run: |
                   $message = (git log -1 --pretty=%B | Out-String).Split("`n")[0].Trim()
@@ -44,16 +32,30 @@ jobs:
                   }
                 shell: pwsh
 
-              - name: Set version in install.ps1
+              - name: Update version in install.ps1
                 run: |
-                  if ($env:is_version -eq 'true') {
-                  (Get-Content .\install.ps1) -replace '^\$version = ".*"', "\$version = `"$env:version`"" | Set-Content .\install.ps1
-                  } else {
-                  $commitId = (git rev-parse HEAD).Substring(0, 7)
-                  (Get-Content .\install.ps1) -replace '^\$version = ".*"', "\$version = `"$commitId`"" | Set-Content .\install.ps1
-                  }
-                  (Get-Content .\install.ps1 -First 1) | Write-Host
+                    if ($env:is_version -eq 'true') {
+                    (Get-Content .\install.ps1) -replace '\$version = ".*"', "\$version = `"$env:version`"" | Set-Content .\install.ps1
+                    } else {
+                    $commitId = (git rev-parse --short HEAD)
+                    (Get-Content .\install.ps1) -replace '\$version = ".*"', "\$version = `"$commitId`"" | Set-Content .\install.ps1
+                    }
+                    (Get-Content .\install.ps1 -First 1) | Write-Host
                 shell: pwsh
+    
+              - name: Download favicon.png
+                run: |
+                  Invoke-WebRequest -Uri "https://mbf.bsquest.xyz/favicon.png" -OutFile "favicon.png"
+                shell: pwsh
+
+              - name: Install ps2exe
+                run: Install-Module -Name ps2exe -Force -Scope CurrentUser -AllowClobber
+                shell: pwsh
+    
+              - name: Convert the PNG to an Icon using ImageMagick
+                run: magick favicon.png favicon.ico
+
+
 
               - name: Compile installer.ps1 to installer.exe
                 run: |
