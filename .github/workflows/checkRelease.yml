@@ -14,7 +14,7 @@ jobs:
 
       - name: Get Latest Release
         id: get_latest_release
-        uses: dawidd6/action-get-latest-release@v3
+        uses: pozetroninc/github-action-get-latest-release@master
         with:
           owner: DanTheMan827
           repo: mbf-launcher
