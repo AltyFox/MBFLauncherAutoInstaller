@@ -1,5 +1,5 @@
 Add-Type -AssemblyName System.Windows.Forms
-$version = "v1.0.14"
+$version = "v1.0.15"
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
