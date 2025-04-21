@@ -27,7 +27,7 @@ jobs:
                 run: magick favicon.png favicon.ico
 
 
-                - name: Compile installer.ps1 to installer.exe
+              - name: Compile installer.ps1 to installer.exe
                 run: |
                   $year = (Get-Date).Year
                   Invoke-ps2exe -inputFile .\install.ps1 -outputFile .\MBF-Launcher-Installer.exe -verbose -iconFile .\favicon.ico -noConsole `
