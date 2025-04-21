@@ -26,22 +26,6 @@ jobs:
               - name: Convert the PNG to an Icon using ImageMagick
                 run: magick favicon.png favicon.ico
 
-
-              - name: Compile installer.ps1 to installer.exe
-                run: |
-                  $year = (Get-Date).Year
-                  Invoke-ps2exe -inputFile .\install.ps1 -outputFile .\MBF-Launcher-Installer.exe -verbose -iconFile .\favicon.ico -noConsole `
-                  -product "MBF-Launcher-Installer" `
-                  -copyright "$year" `
-                  -description "This automatically installs the drivers needed to talk to your Quest, and installs MBF Launcher to your headset"
-                shell: pwsh
-    
-              - name: Upload installer.exe as artifact
-                uses: actions/upload-artifact@v4
-                with:
-                  name: MBF-Launcher-Installer
-                  path: MBF-Launcher-Installer.exe
-
               - name: Get first line of commit message
                 id: get_commit_message
                 run: |
@@ -59,6 +43,31 @@ jobs:
                   echo "is_version=false" >> $env:GITHUB_ENV
                   }
                 shell: pwsh
+
+              - name: Set version in install.ps1
+                run: |
+                  if ($env:is_version -eq 'true') {
+                  (Get-Content .\install.ps1) -replace '^\$version = ".*"', "\$version = `"$env:version`"" | Set-Content .\install.ps1
+                  } else {
+                  $commitId = (git rev-parse HEAD).Substring(0, 7)
+                  (Get-Content .\install.ps1) -replace '^\$version = ".*"', "\$version = `"$commitId`"" | Set-Content .\install.ps1
+                  }
+                shell: pwsh
+
+              - name: Compile installer.ps1 to installer.exe
+                run: |
+                  $year = (Get-Date).Year
+                  Invoke-ps2exe -inputFile .\install.ps1 -outputFile .\MBF-Launcher-Installer.exe -verbose -iconFile .\favicon.ico -noConsole `
+                  -product "MBF-Launcher-Installer" `
+                  -copyright "$year" `
+                  -description "This automatically installs the drivers needed to talk to your Quest, and installs MBF Launcher to your headset"
+                shell: pwsh
+    
+              - name: Upload installer.exe as artifact
+                uses: actions/upload-artifact@v4
+                with:
+                  name: MBF-Launcher-Installer
+                  path: MBF-Launcher-Installer.exe
      
               - name: Create Release
                 if: env.is_version == 'true'
