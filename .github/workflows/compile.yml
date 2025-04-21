@@ -27,9 +27,13 @@ jobs:
                 run: magick favicon.png favicon.ico
 
 
-              - name: Compile installer.ps1 to installer.exe
+                - name: Compile installer.ps1 to installer.exe
                 run: |
-                  Invoke-ps2exe -inputFile .\install.ps1 -outputFile .\MBF-Launcher-Installer.exe -verbose -iconFile .\favicon.ico -noConsole
+                  $year = (Get-Date).Year
+                  Invoke-ps2exe -inputFile .\install.ps1 -outputFile .\MBF-Launcher-Installer.exe -verbose -iconFile .\favicon.ico -noConsole `
+                  -product "MBF-Launcher-Installer" `
+                  -copyright "$year" `
+                  -description "This automatically installs the drivers needed to talk to your Quest, and installs 'MBF Launcher' to your headset"
                 shell: pwsh
     
               - name: Upload installer.exe as artifact
