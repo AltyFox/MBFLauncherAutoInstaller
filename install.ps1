@@ -1,20 +1,30 @@
+
+
+
 $version = "localTesting"
 Add-Type -AssemblyName System.Windows.Forms
 
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
+if ($debugging) {
+    $form.Text += " (Debug Mode)"
+}
+if ($forceDriverInstall) {
+    $form.Text += " (Force Driver Install)"
+}
 $form.Size = New-Object System.Drawing.Size(800,500)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 
 # Create Label
-$label = New-Object System.Windows.Forms.Label
-$label.Location = New-Object System.Drawing.Point(10,10)
-$label.Size = New-Object System.Drawing.Size(760,50)
-$label.Font = New-Object System.Drawing.Font("Arial",14,[System.Drawing.FontStyle]::Bold)
-$label.Text = "Welcome to the MBF Launcher Installer. Click 'Start' to begin."
+$label = [System.Windows.Forms.Label]@{
+    Location = [System.Drawing.Point]::new(10, 10)
+    Size = [System.Drawing.Size]::new(760, 30)
+    Font = [System.Drawing.Font]::new("Arial", 12, [System.Drawing.FontStyle]::Bold)
+    Text = "Welcome to the MBF Launcher Installer. Click 'Start' to begin."
+}
 $form.Controls.Add($label)
 
 # Create TextBox for output
@@ -49,6 +59,21 @@ $throbber.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.Fon
 $throbber.Text = ""
 $form.Controls.Add($throbber)
 
+# Create CheckBox for Debug Mode
+$debugCheckBox = New-Object System.Windows.Forms.CheckBox
+$debugCheckBox.Location = New-Object System.Drawing.Point(10, 40) # Moved up 10
+$debugCheckBox.Size = New-Object System.Drawing.Size(200, 40)
+$debugCheckBox.Text = "Testing mode, don't use unless you know what you're doing"
+$debugCheckBox.Checked = $false
+$form.Controls.Add($debugCheckBox)
+
+# Create CheckBox for Force Driver Install
+$forceDriverCheckBox = New-Object System.Windows.Forms.CheckBox
+$forceDriverCheckBox.Location = New-Object System.Drawing.Point(220, 40) # Moved up 10
+$forceDriverCheckBox.Size = New-Object System.Drawing.Size(200, 40)
+$forceDriverCheckBox.Text = "Force Driver Install if already installed"
+$forceDriverCheckBox.Checked = $false
+$form.Controls.Add($forceDriverCheckBox)
 
 
 $form.Add_FormClosing({
@@ -89,6 +114,8 @@ Function Log-Message($message) {
     $outputBox.AppendText("`r`n[$timestamp] $message")
     $outputBox.ScrollToCaret()
 }
+
+
 $appDataDir = Join-Path $env:APPDATA "mbf_tools"
 
 if (-not (Test-Path $appDataDir)) {
@@ -167,33 +194,59 @@ function DownloadFile($url, $targetFile)
 
 # Main Installation Function
 $startButton.Add_Click({
+    # Update form title based on checkbox states
+    $debugging = $debugCheckBox.Checked
+    $forceDriverInstall = $forceDriverCheckBox.Checked
+    if ($debugging) {
+        $form.Text += " (Debug Mode)"
+    }
+    if ($forceDriverInstall) {
+        $form.Text += " (Force Driver Install)"
+    }
     $startButton.Enabled = $false
-    $throbber.Text = "Installing USB Driver.."
-    Log-Message "Downloading the USB driver needed to access your Quest"
-    $androidUSBPath = "$appDataDir\AndroidUSB.zip"
+    $driverRegistryKey = "HKCU:\Software\MBFLauncherAutoInstaller"
+    $driverRegistryValueName = "USBDriverInstalled"
 
+    if (-not (Test-Path $driverRegistryKey)) {
+        New-Item -Path $driverRegistryKey -Force | Out-Null
+    }
 
-    DownloadFile "https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/AndroidUSB.zip" $androidUSBPath
+    $isDriverInstalled = Get-ItemProperty -Path $driverRegistryKey -Name $driverRegistryValueName -ErrorAction SilentlyContinue
+    if ($forceDriverInstall) {
+        $isDriverInstalled = $false
+    }
 
-    $androidUSBExtractPath = "$appDataDir\AndroidUSB"
-    Log-Message "Extracting AndroidUSB.zip to: $androidUSBExtractPath"
+    if (-not $isDriverInstalled) {
+        $throbber.Text = "Installing USB Driver.."
+        Log-Message "Downloading the USB driver needed to access your Quest"
+        $androidUSBPath = "$appDataDir\AndroidUSB.zip"
 
+        DownloadFile "https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/AndroidUSB.zip" $androidUSBPath
 
-    Expand-Archive -Path $androidUSBPath -DestinationPath $androidUSBExtractPath -Force
-    Log-Message "Extraction completed."
+        $androidUSBExtractPath = "$appDataDir\AndroidUSB"
+        Log-Message "Extracting AndroidUSB.zip to: $androidUSBExtractPath"
 
-    Log-Message "Installing USB driver from android_winusb.inf"
-    $messageBox = [System.Windows.Forms.MessageBox]::Show(
-        "This requires Admin privileges. You may see a prompt, please accept it. If you don't accept the prompt and install the drivers, this installer will be unable to install the MBF Launcher.",
-        "Admin Privileges Required",
-        [System.Windows.Forms.MessageBoxButtons]::OK,
-        [System.Windows.Forms.MessageBoxIcon]::Warning
-    )
+        Expand-Archive -Path $androidUSBPath -DestinationPath $androidUSBExtractPath -Force
+        Log-Message "Extraction completed."
 
-    if ($messageBox -eq [System.Windows.Forms.DialogResult]::OK) {
-        $infPath = "$androidUSBExtractPath\android_winusb.inf"
-        Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs | Wait-Process
-        Log-Message "USB driver installed successfully."
+        Log-Message "Installing USB driver from android_winusb.inf"
+        $messageBox = [System.Windows.Forms.MessageBox]::Show(
+            "This requires Admin privileges. You may see a prompt, please accept it. If you don't accept the prompt and install the drivers, this installer will be unable to install the MBF Launcher.",
+            "Admin Privileges Required",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        )
+
+        if ($messageBox -eq [System.Windows.Forms.DialogResult]::OK) {
+            $infPath = "$androidUSBExtractPath\android_winusb.inf"
+            Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs | Wait-Process
+            Log-Message "USB driver installed successfully."
+
+            # Mark the driver as installed in the registry
+            Set-ItemProperty -Path $driverRegistryKey -Name $driverRegistryValueName -Value $true
+        }
+    } else {
+        Log-Message "USB driver is already installed. Skipping installation."
     }
 
 
@@ -261,8 +314,15 @@ $startButton.Add_Click({
 
     do {
         $result = & $adbExePath devices | Out-String
-        if ($result -match '(\w{14})\s+device') {
-            $deviceID = $matches[1]
+        if ($debugging) {
+            $lines = $result -split "`r`n"
+            if ($lines.Count -gt 1 -and $lines[1] -match '^\s*(\S+)') {
+                $deviceID = $matches[1]
+            }
+        } else {
+            if ($result -match '(\w{14})\s+device') {
+                $deviceID = $matches[1]
+            }
         }
 
         
