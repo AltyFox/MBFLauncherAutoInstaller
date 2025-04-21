@@ -46,8 +46,7 @@ jobs:
           git checkout -b update-config-${{ steps.get_latest_release.outputs.release }}
           git add config.json
           git commit -m "Update config.json to version ${{ steps.get_latest_release.outputs.release }}"
-          git pull origin update-config-${{ steps.get_latest_release.outputs.release }} --rebase
-          git push origin update-config-${{ steps.get_latest_release.outputs.release }}
+          git push --set-upstream origin update-config-${{ steps.get_latest_release.outputs.release }}
           gh pr create --title "Update config.json to version ${{ steps.get_latest_release.outputs.release }}" --body "Automatically created by GitHub Actions." --base main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
