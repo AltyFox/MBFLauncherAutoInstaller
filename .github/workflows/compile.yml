@@ -47,10 +47,10 @@ jobs:
               - name: Set version in install.ps1
                 run: |
                   if ($env:is_version -eq 'true') {
-                  (Get-Content .\install.ps1) -replace '^\$version = ".*"', "\$version = `"$env:version`"" | Set-Content .\install.ps1
+                  (Get-Content .\install.ps1) -replace '^\$version = ".*"', "\$version = ``"$env:version``"" | Set-Content .\install.ps1
                   } else {
                   $commitId = (git rev-parse HEAD).Substring(0, 7)
-                  (Get-Content .\install.ps1) -replace '^\$version = ".*"', "\$version = `"$commitId`"" | Set-Content .\install.ps1
+                  (Get-Content .\install.ps1) -replace '^\$version = ".*"', "\$version = ``"$commitId``"" | Set-Content .\install.ps1
                   }
                   (Get-Content .\install.ps1 -First 1) | Write-Host
                 shell: pwsh

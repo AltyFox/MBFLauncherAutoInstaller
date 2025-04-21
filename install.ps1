@@ -131,7 +131,7 @@ function DownloadFile($url, $targetFile)
    $downloadedBytes = $count
 
    # Ensure progress bar exists before modifying it
-   if ($progressBar -ne $null) {
+   if ($null -ne $progressBar) {
        $progressBar.Visible = $true
        $progressBar.Value = 0
    }
@@ -144,13 +144,13 @@ function DownloadFile($url, $targetFile)
         $downloadedBytes += $count
 
         # Update progress bar
-        if ($progressBar -ne $null -and $totalLength -gt 0) {
+        if ($null -ne $progressBar -and $totalLength -gt 0) {
             $progressBar.Value = [System.Math]::Min(100, ([System.Math]::Floor($downloadedBytes/1024) / $totalLength) * 100)
         }
    }
 
    # Hide progress bar after completion
-   if ($progressBar -ne $null) {
+   if ($null -ne $progressBar) {
        $progressBar.Value = 100
        Start-Sleep -Milliseconds 500  # Brief delay for UI update
        $progressBar.Visible = $false
