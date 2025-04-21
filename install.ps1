@@ -2,21 +2,17 @@
 
 
 $version = "localTesting"
+$debugging = $false
 Add-Type -AssemblyName System.Windows.Forms
 
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MBF Launcher Installer $version"
-if ($debugging) {
-    $form.Text += " (Debug Mode)"
-}
-if ($forceDriverInstall) {
-    $form.Text += " (Force Driver Install)"
-}
 $form.Size = New-Object System.Drawing.Size(800, 500)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
+
 
 # Create Label
 $label = [System.Windows.Forms.Label]@{
@@ -80,23 +76,23 @@ $form.Add_FormClosing({
         $throbber.Text = ""
         $progressBar.Visible = $false
         $global:isForceClosed = 1
-        Log-Message "Stopping any ongoing processes and force closing the application."
+        Show-Message "Stopping any ongoing processes and force closing the application."
     
         # Stop ADB server if running
         if ($adbExePath -and (Get-Process -Name "adb" -ErrorAction SilentlyContinue)) {
-            Log-Message "Stopping ADB server..."
+            Show-Message "Stopping ADB server..."
             & $adbExePath kill-server
-            Log-Message "ADB server stopped."
+            Show-Message "ADB server stopped."
         }
 
         # Clean up temporary files
         if (Test-Path $appDataDir) {
-            Log-Message "Deleting temporary directory..."
+            Show-Message "Deleting temporary directory..."
             Remove-Item $appDataDir -Recurse -Force
-            Log-Message "Temporary directory deleted."
+            Show-Message "Temporary directory deleted."
         }
 
-        Log-Message "Application force closed."
+        Show-Message "Application force closed."
         [System.Environment]::Exit(0)
     })
 
@@ -109,7 +105,7 @@ $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($currentExePath)
 
 
 # Helper function for logging
-Function Log-Message($message) {
+Function Show-Message($message) {
     $timestamp = Get-Date -Format "HH:mm:ss"
     $outputBox.AppendText("`r`n[$timestamp] $message")
     $outputBox.ScrollToCaret()
@@ -119,28 +115,28 @@ Function Log-Message($message) {
 $appDataDir = Join-Path $env:APPDATA "mbf_tools"
 
 if (-not (Test-Path $appDataDir)) {
-    Log-Message "Creating application data directory at: $appDataDir"
+    Show-Message "Creating application data directory at: $appDataDir"
     New-Item -ItemType Directory -Path $appDataDir | Out-Null
 }
 else {
-    Log-Message "Application data directory already exists at: $appDataDir"
+    Show-Message "Application data directory already exists at: $appDataDir"
 
     # Delete all contents of the directory
-    Log-Message "Clearing contents of $appDataDir"
+    Show-Message "Clearing contents of $appDataDir"
     Get-ChildItem -Path $appDataDir -Recurse -Force | Remove-Item -Force -Recurse
-    Log-Message "Contents of $appDataDir have been cleared."
+    Show-Message "Contents of $appDataDir have been cleared."
 }
 
 
 # Kill any running adb.exe processes
 $adbProcesses = Get-Process -Name "adb" -ErrorAction SilentlyContinue
 if ($adbProcesses) {
-    Log-Message "Terminating running instances of adb.exe."
+    Show-Message "Terminating running instances of adb.exe."
     $adbProcesses | ForEach-Object { Stop-Process -Id $_.Id -Force }
-    Log-Message "All running instances of adb.exe have been terminated."
+    Show-Message "All running instances of adb.exe have been terminated."
 }
 else {
-    Log-Message "No running instances of adb.exe found."
+    Show-Message "No running instances of adb.exe found."
 }
 
 # Function to download a file with progress
@@ -218,18 +214,18 @@ $startButton.Add_Click({
 
         if (-not $isDriverInstalled) {
             $throbber.Text = "Installing USB Driver.."
-            Log-Message "Downloading the USB driver needed to access your Quest"
+            Show-Message "Downloading the USB driver needed to access your Quest"
             $androidUSBPath = "$appDataDir\AndroidUSB.zip"
 
             DownloadFile "https://github.com/AltyFox/MBFLauncherAutoInstaller/raw/refs/heads/main/AndroidUSB.zip" $androidUSBPath
 
             $androidUSBExtractPath = "$appDataDir\AndroidUSB"
-            Log-Message "Extracting AndroidUSB.zip to: $androidUSBExtractPath"
+            Show-Message "Extracting AndroidUSB.zip to: $androidUSBExtractPath"
 
             Expand-Archive -Path $androidUSBPath -DestinationPath $androidUSBExtractPath -Force
-            Log-Message "Extraction completed."
+            Show-Message "Extraction completed."
 
-            Log-Message "Installing USB driver from android_winusb.inf"
+            Show-Message "Installing USB driver from android_winusb.inf"
             $messageBox = [System.Windows.Forms.MessageBox]::Show(
                 "This requires Admin privileges. You may see a prompt, please accept it. If you don't accept the prompt and install the drivers, this installer will be unable to install the MBF Launcher.",
                 "Admin Privileges Required",
@@ -240,14 +236,14 @@ $startButton.Add_Click({
             if ($messageBox -eq [System.Windows.Forms.DialogResult]::OK) {
                 $infPath = "$androidUSBExtractPath\android_winusb.inf"
                 Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"pnputil /add-driver `"$infPath`" /install`"" -Verb RunAs | Wait-Process
-                Log-Message "USB driver installed successfully."
+                Show-Message "USB driver installed successfully."
 
                 # Mark the driver as installed in the registry
                 Set-ItemProperty -Path $driverRegistryKey -Name $driverRegistryValueName -Value $true
             }
         }
         else {
-            Log-Message "USB driver is already installed. Skipping installation."
+            Show-Message "USB driver is already installed. Skipping installation."
         }
 
 
@@ -257,20 +253,20 @@ $startButton.Add_Click({
         $platformToolsDir = "$appDataDir\platform-tools"
         if (Test-Path $platformToolsDir) {
     
-            Log-Message "Deleting existing platform-tools directory"
+            Show-Message "Deleting existing platform-tools directory"
             Remove-Item $platformToolsDir -Recurse -Force
         }
     
 
-        Log-Message "Downloading platform-tools..."
+        Show-Message "Downloading platform-tools..."
         DownloadFile "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" $adbZipPath
         Expand-Archive -Path $adbZipPath -DestinationPath $appDataDir -Force
         $adbExePath = "$platformToolsDir\adb.exe"
-        Log-Message "ADB located at: $adbExePath"
+        Show-Message "ADB located at: $adbExePath"
 
-        Log-Message "Starting ADB server..."
+        Show-Message "Starting ADB server..."
         & $adbExePath start-server *> $null
-        Log-Message "ADB server started."
+        Show-Message "ADB server started."
 
 
         $throbber.Text = "Fetching latest MBF Launcher APK from GitHub"
@@ -288,7 +284,7 @@ $startButton.Add_Click({
             "X-GitHub-Api-Version" = "2022-11-28"
         }
 
-        Log-Message "Fetching all releases information from GitHub..."
+        Show-Message "Fetching all releases information from GitHub..."
         try {
             $releases = Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Get
             $latestRelease = $releases | Sort-Object { $_.published_at } -Descending | Select-Object -First 1
@@ -297,20 +293,20 @@ $startButton.Add_Click({
                 throw "No APK asset found in the latest release."
             }
             $launcherDownloadUrl = $latestReleaseUrl
-            Log-Message "Latest release APK URL: $launcherDownloadUrl"
+            Show-Message "Latest release APK URL: $launcherDownloadUrl"
         }
         catch {
-            Log-Message "Error fetching the releases: $_"
+            Show-Message "Error fetching the releases: $_"
             throw
         }
 
-        Log-Message "Downloading MBF Launcher APK..."
+        Show-Message "Downloading MBF Launcher APK..."
         DownloadFile $launcherDownloadUrl $apkPath
-        Log-Message "Download complete. APK saved to: $apkPath"
+        Show-Message "Download complete. APK saved to: $apkPath"
 
-        Log-Message "Waiting for Quest device connection..."
-        Log-Message "You may need to unplug and plug your Quest back into your computer if it was already connected"
-        Log-Message "Be sure to accept the authorization prompt in the headset"
+        Show-Message "Waiting for Quest device connection..."
+        Show-Message "You may need to unplug and plug your Quest back into your computer if it was already connected"
+        Show-Message "Be sure to accept the authorization prompt in the headset"
     
         $throbber.Text = "Waiting for Quest device connection..."
     
@@ -334,20 +330,20 @@ $startButton.Add_Click({
                 if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
                     $ip = $ipTextBox.Text
                     if ($ip -match '^\d{1,3}(\.\d{1,3}){3}:\d+$') {
-                        Log-Message "Attempting to connect to device at $ip..."
+                        Show-Message "Attempting to connect to device at $ip..."
                         $connectResult = & $adbExePath connect $ip | Out-String
-                        Log-Message $connectResult
+                        Show-Message $connectResult
                         if ($connectResult -match 'connected to') {
-                            Log-Message "Successfully connected to $ip."
+                            Show-Message "Successfully connected to $ip."
                             $debugging = $true
                             $ipTextBox.Visible = $false
                         }
                         else {
-                            Log-Message "Failed to connect to $ip. Please check the IP:PORT and try again."
+                            Show-Message "Failed to connect to $ip. Please check the IP:PORT and try again."
                         }
                     }
                     else {
-                        Log-Message "Invalid IP:PORT format. Please enter a valid IP:PORT."
+                        Show-Message "Invalid IP:PORT format. Please enter a valid IP:PORT."
                     }
                 }
             })
@@ -388,52 +384,52 @@ $startButton.Add_Click({
             Start-Sleep -Milliseconds 10  # Sleep briefly to prevent CPU hogging
             # Exit loop if force closed
             if ( $global:isForceClosed -eq 1) {
-                Log-Message "Installation process aborted due to application closure."
+                Show-Message "Installation process aborted due to application closure."
                 break
-            }
+            }   
         
         } while (-not $deviceID)
     
-        Log-Message "Quest device detected and authorized (Device ID: $deviceID)."
+        Show-Message "Quest device detected and authorized (Device ID: $deviceID)."
     
     
         $throbber.Text = "Installing MBF Launcher to your Quest device"
-        Log-Message "Uninstalling currently installed MBF Launcher if it's installed"
+        Show-Message "Uninstalling currently installed MBF Launcher if it's installed"
         & $adbExePath -s $deviceID uninstall com.dantheman827.mbflauncher
 
-        Log-Message "Installing APK onto Quest device..."
+        Show-Message "Installing APK onto Quest device..."
         & $adbExePath -s $deviceID install $apkPath
-        Log-Message "APK installed successfully!"
+        Show-Message "APK installed successfully!"
 
-        Log-Message "Granting necessary permissions to the MBF Launcher..."
+        Show-Message "Granting necessary permissions to the MBF Launcher..."
         & $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.WRITE_SECURE_SETTINGS
         & $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.READ_LOGS
-        Log-Message "Permissions granted successfully."
+        Show-Message "Permissions granted successfully."
 
-        Log-Message "Launching MBF Launcher on Quest device..."
+        Show-Message "Launching MBF Launcher on Quest device..."
         & $adbExePath -s $deviceID shell monkey -p com.dantheman827.mbflauncher 1 *> $null
-        Log-Message "MBF Launcher started on device."
+        Show-Message "MBF Launcher started on device."
 
-        Log-Message "Switching ADB to TCP/IP mode on port 5555..."
+        Show-Message "Switching ADB to TCP/IP mode on port 5555..."
         & $adbExePath -s $deviceID tcpip 5555
-        Log-Message "ADB is now in TCP/IP mode on port 5555."
-        Log-Message "This should make MBF Launcher auto connect to itself quickly."
+        Show-Message "ADB is now in TCP/IP mode on port 5555."
+        Show-Message "This should make MBF Launcher auto connect to itself quickly."
 
         $throbber.Text = "Finishing up..."
-        Log-Message "Stopping ADB server..."
+        Show-Message "Stopping ADB server..."
         & $adbExePath kill-server
-        Log-Message "ADB server stopped."
+        Show-Message "ADB server stopped."
 
 
-        Log-Message "Deleting temporary directory"
+        Show-Message "Deleting temporary directory"
         Remove-Item $appDataDir -Recurse -Force
 
-        Log-Message "Installation process completed!"
-        Log-Message "MBF Launcher should be active and running on your headset now."
-        Log-Message "You will see more ADB authorization prompts in the headset, please accept them."
-        Log-Message "If you need help, ask in #quest-standalone-help in BSMG. Join the Discord at: http://discord.gg/beatsabermods"
-        Log-Message "You may also DM @alteran for assistance."
-        Log-Message "You can now close this window."
+        Show-Message "Installation process completed!"
+        Show-Message "If you need help, ask in #quest-standalone-help in BSMG. Join the Discord at: http://discord.gg/beatsabermods"
+        Show-Message "You may also DM @alteran for assistance."
+        Show-Message "MBF Launcher should be active and running on your headset now."
+        Show-Message "You will see more ADB authorization prompts in the headset, please accept them."
+        Show-Message "You can now close this window."
 
         $throbber.Text = ""
 
