@@ -26,9 +26,9 @@ jobs:
           if [ -f config.json ]; then
             current_version=$(jq -r '.version' config.json)
           else
-            current_version=""
+           current_version=""
           fi
-          echo "current_version=${current_version}" >> $GITHUB_ENV
+           echo "current_version=${current_version}" >> $GITHUB_ENV
           if [ "$current_version" != "${{ steps.get_latest_release.outputs.release }}" ]; then
             echo "new_release=true" >> $GITHUB_ENV
           else
@@ -38,7 +38,8 @@ jobs:
       - name: Update Config and Create Pull Request
         if: env.new_release == 'true'
         run: |
-          jq --arg version "${{ steps.get_latest_release.outputs.release }}" '.version = $version' config.json > tmp.json && mv tmp.json config.json
+          download_url="https://github.com/DanTheMan827/mbf-launcher/releases/download/${{ steps.get_latest_release.outputs.release }}/com.dantheman827.mbflauncher-Signed.apk"
+          jq --arg version "${{ steps.get_latest_release.outputs.release }}" --arg url "$download_url" '.version = $version | .["launcher-download-url"] = $url' config.json > tmp.json && mv tmp.json config.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b update-config-${{ steps.get_latest_release.outputs.release }}
