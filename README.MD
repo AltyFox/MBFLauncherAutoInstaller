@@ -14,7 +14,7 @@ The **MBF Launcher Auto Installer** is a tool designed to simplify the installat
     - Administrator privileges
 
 ## Installation
-1. Download the latest release from the [Releases](#) page.
+1. Download the latest release from the [Releases](https://github.com/AltyFox/MBFLauncherAutoInstaller/releases) page.
 3. Follow the on-screen instructions to complete the setup.
 
 
@@ -28,7 +28,5 @@ Contributions are welcome! Please follow these steps:
 This project is licensed under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html).
 
 ## Support
-For issues or questions, please open an issue in the [GitHub repository](#)
+For issues or questions, please open an issue on the [Issues Page](https://github.com/AltyFox/MBFLauncherAutoInstaller/issues)
 
-## Acknowledgments
-Special thanks to all contributors and users who have supported this project.
