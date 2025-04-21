@@ -22,14 +22,14 @@ jobs:
       - name: Check for New Release
         id: check_new_release
         run: |
-          echo "latest_release=${{ steps.get_latest_release.outputs.tag }}" >> $GITHUB_ENV
+          echo "latest_release=${{ steps.get_latest_release.outputs.release }}" >> $GITHUB_ENV
           if [ -f config.json ]; then
             current_version=$(jq -r '.version' config.json)
           else
             current_version=""
           fi
           echo "current_version=${current_version}" >> $GITHUB_ENV
-          if [ "$current_version" != "${{ steps.get_latest_release.outputs.tag }}" ]; then
+          if [ "$current_version" != "${{ steps.get_latest_release.outputs.release }}" ]; then
             echo "new_release=true" >> $GITHUB_ENV
           else
             echo "new_release=false" >> $GITHUB_ENV
@@ -37,13 +37,13 @@ jobs:
       - name: Update Config and Create Pull Request
         if: env.new_release == 'true'
         run: |
-          jq --arg version "${{ steps.get_latest_release.outputs.tag }}" '.version = $version' config.json > tmp.json && mv tmp.json config.json
+          jq --arg version "${{ steps.get_latest_release.outputs.release }}" '.version = $version' config.json > tmp.json && mv tmp.json config.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b update-config-${{ steps.get_latest_release.outputs.tag }}
+          git checkout -b update-config-${{ steps.get_latest_release.outputs.release }}
           git add config.json
-          git commit -m "Update config.json to version ${{ steps.get_latest_release.outputs.tag }}"
-          git push origin update-config-${{ steps.get_latest_release.outputs.tag }}
-          gh pr create --title "Update config.json to version ${{ steps.get_latest_release.outputs.tag }}" --body "Automatically created by GitHub Actions." --base main
+          git commit -m "Update config.json to version ${{ steps.get_latest_release.outputs.release }}"
+          git push origin update-config-${{ steps.get_latest_release.outputs.release }}
+          gh pr create --title "Update config.json to version ${{ steps.get_latest_release.outputs.release }}" --body "Automatically created by GitHub Actions." --base main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
