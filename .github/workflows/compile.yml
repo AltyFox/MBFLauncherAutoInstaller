@@ -51,9 +51,7 @@ jobs:
 
         Set-Content -Path install.ps1 -Value $updated_content -Encoding UTF8
       shell: pwsh
-  	
-  	
-
+      
     - name: Download favicon.png
       run: |
         Invoke-WebRequest -Uri "https://mbf.bsquest.xyz/favicon.png" -OutFile "favicon.png"
