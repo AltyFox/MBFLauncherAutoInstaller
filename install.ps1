@@ -397,7 +397,7 @@ $startButton.Add_Click({
 
         Show-Message "Getting Quest device IP address..."
         $ipOutput = & $adbExePath -s $deviceID shell ip addr show wlan0
-        $ipAddress = ($ipOutput -split '\s+' | Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' })[0]
+        $ipAddress = ($ipOutput -split '\s+' | Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' })
 
         if (-not $ipAddress) {
             Show-Message "❌ Could not determine IP address of Quest device."
