@@ -397,11 +397,13 @@ $startButton.Add_Click({
 
         Show-Message "Getting Quest device IP address..."
         $ipOutput = & $adbExePath -s $deviceID shell ip addr show wlan0
-        $ipAddress = ($ipOutput -split '\s+' | Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' })
+        Show-Message
+        $ipAddress = $ipOutput -split '\s+' | Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' }
 
         if (-not $ipAddress) {
             Show-Message "❌ Could not determine IP address of Quest device."
-            exit 1
+            Show-Message "Echoing commands that would have been used instead, this installation has failed!!!"
+            $adbExePath = "echo adb"
         }
 
         Show-Message "Switching ADB to TCP/IP mode on port 5555..."
