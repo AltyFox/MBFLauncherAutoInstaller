@@ -416,8 +416,18 @@ $startButton.Add_Click({
         Show-Message "Uninstalling currently installed MBF Launcher if it's installed..."
         & $adbExePath -s $deviceID uninstall com.dantheman827.mbflauncher
 
-        Show-Message "Installing APK onto Quest device..."
-	
+        Log-Message "Installing APK onto Quest device..."
+   		& $adbExePath -s $deviceID install $apkPath
+    	Log-Message "APK installed successfully!"
+
+    	Log-Message "Granting necessary permissions to the MBF Launcher..."
+    	& $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.WRITE_SECURE_SETTINGS
+    	& $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.READ_LOGS
+    	Log-Message "Permissions granted successfully."
+
+    	Log-Message "Launching MBF Launcher on Quest device..."
+    	& $adbExePath -s $deviceID shell monkey -p com.dantheman827.mbflauncher 1 *> $null
+   		Log-Message "MBF Launcher started on device."
 
         $throbber.Text = "Finishing up..."
         Show-Message "Stopping ADB server..."
