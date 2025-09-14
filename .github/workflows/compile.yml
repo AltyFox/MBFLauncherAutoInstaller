@@ -37,24 +37,22 @@ jobs:
 
     - name: Set version in install.ps1
       run: |
-        import os
-        import re
+        $is_version = $env:is_version
+        $version = $env:version
+        $commit_id = (git rev-parse --short HEAD).Trim()
 
-        is_version = os.getenv('is_version')
-        version = os.getenv('version')
-        commit_id = os.popen('git rev-parse --short HEAD').read().strip()
+        $content = Get-Content -Raw install.ps1
 
-        with open('install.ps1', 'r') as file:
-          content = file.read()
+        if ($is_version -eq "true") {
+          $updated_content = $content -replace '\$version = ".*"', "`$version = `"$version`""
+        } else {
+          $updated_content = $content -replace '\$version = ".*"', "`$version = `"$commit_id`""
+        }
 
-        if is_version == 'true':
-          updated_content = re.sub(r'\$version = ".*"', f'$version = "{version}"', content)
-        else:
-          updated_content = re.sub(r'\$version = ".*"', f'$version = "{commit_id}"', content)
-
-        with open('install.ps1', 'w') as file:
-          file.write(updated_content)
-      shell: python
+        Set-Content -Path install.ps1 -Value $updated_content -Encoding UTF8
+      shell: pwsh
+  	
+  	
 
     - name: Download favicon.png
       run: |
