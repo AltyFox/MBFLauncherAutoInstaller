@@ -393,27 +393,31 @@ $startButton.Add_Click({
         Show-Message "Quest device detected and authorized (Device ID: $deviceID)."
     
     
-        $throbber.Text = "Installing MBF Launcher to your Quest device"
-        Show-Message "Uninstalling currently installed MBF Launcher if it's installed"
-        & $adbExePath -s $deviceID uninstall com.dantheman827.mbflauncher
+        $throbber.Text = "Preparing Quest device for MBF Launcher installation"
 
-        Show-Message "Installing APK onto Quest device..."
-        & $adbExePath -s $deviceID install $apkPath
-        Show-Message "APK installed successfully!"
+        Show-Message "Getting Quest device IP address..."
+        $ipOutput = & $adbExePath -s $deviceID shell ip addr show wlan0
+        $ipAddress = ($ipOutput -split '\s+' | Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' })[0]
 
-        Show-Message "Granting necessary permissions to the MBF Launcher..."
-        & $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.WRITE_SECURE_SETTINGS
-        & $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.READ_LOGS
-        Show-Message "Permissions granted successfully."
-
-        Show-Message "Launching MBF Launcher on Quest device..."
-        & $adbExePath -s $deviceID shell monkey -p com.dantheman827.mbflauncher 1 *> $null
-        Show-Message "MBF Launcher started on device."
+        if (-not $ipAddress) {
+            Show-Message "❌ Could not determine IP address of Quest device."
+            exit 1
+        }
 
         Show-Message "Switching ADB to TCP/IP mode on port 5555..."
         & $adbExePath -s $deviceID tcpip 5555
-        Show-Message "ADB is now in TCP/IP mode on port 5555."
-        Show-Message "This should make MBF Launcher auto connect to itself quickly."
+
+        Show-Message "Connecting ADB to $ipAddress:5555..."
+        & $adbExePath connect "$ipAddress:5555"
+
+        # Use the IP:5555 as new device ID going forward
+        $deviceID = "$ipAddress:5555"
+
+        Show-Message "Uninstalling currently installed MBF Launcher if it's installed..."
+        & $adbExePath -s $deviceID uninstall com.dantheman827.mbflauncher
+
+        Show-Message "Installing APK onto Quest device..."
+	
 
         $throbber.Text = "Finishing up..."
         Show-Message "Stopping ADB server..."
