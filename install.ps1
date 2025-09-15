@@ -192,10 +192,18 @@ function Wait-ForAuthorizedDevice {
     )
 
     $deviceID = $null
+    $timeoutSeconds = 5
+    $startTime = Get-Date
 
     do {
+        # Check for timeout
+        if ((Get-Date) - $startTime).TotalSeconds -ge $timeoutSeconds) {
+            return "error"  # timed out
+        }
+
         # Get connected devices
         $result = & $adbExePath devices | Out-String
+
         if ($debugging) {
             $lines = $result -split "`r?`n"
             if ($lines.Count -gt 1) {
@@ -212,10 +220,8 @@ function Wait-ForAuthorizedDevice {
         }
         else {
             foreach ($line in $result -split "`r?`n") {
-                # Trim whitespace
                 $line = $line.Trim()
-                
-                # If a target device is specified, match its exact ID
+
                 if ($TargetDeviceID) {
                     if ($line -match "^$TargetDeviceID\s+device$") {
                         $deviceID = $TargetDeviceID
@@ -223,7 +229,6 @@ function Wait-ForAuthorizedDevice {
                     }
                 }
                 else {
-                    # Otherwise, match any authorized device
                     if ($line -match '^(\S+)\s+device$') {
                         $deviceID = $matches[1]
                         break
@@ -254,7 +259,7 @@ function Wait-ForAuthorizedDevice {
         # Exit loop if force-closed
         if ($global:isForceClosed -eq 1) {
             Show-Message "Installation process aborted due to application closure."
-            break
+            return "error"
         }
 
     } while (-not $deviceID)
@@ -422,34 +427,55 @@ $startButton.Add_Click({
                 }
             })
 
-        $deviceID = Wait-ForAuthorizedDevice
-    
-        Show-Message "Quest device detected and authorized (Device ID: $deviceID)."
-    
-    
-        $throbber.Text = "Preparing Quest device for MBF Launcher installation"
+        do {
+            try {
+                # Step 1: Wait for a Quest device
+                $deviceID = Wait-ForAuthorizedDevice
+                if ($deviceID -eq "error" -or -not $deviceID) { throw "Device not found" }
         
-        & $adbExePath shell input keyevent KEYCODE_WAKEUP
-        Start-Sleep 1
+                Show-Message "Quest device detected and authorized (Device ID: $deviceID)."
         
-        Show-Message "Switching ADB to TCP/IP mode on port 5555..."
-        & $adbExePath -s $deviceID tcpip 5555
+                $throbber.Text = "Preparing Quest device for MBF Launcher installation"
         
-        Wait-ForAuthorizedDevice
+                # Step 2: Wake up device
+                & $adbExePath shell input keyevent KEYCODE_WAKEUP
+                Start-Sleep 1
         
-        # Forward the local (host) port to a device port
-        & $adbExePath forward tcp:5555 tcp:5555
+                # Step 3: Switch ADB to TCP/IP mode
+                Show-Message "Switching ADB to TCP/IP mode on port 5555..."
+                & $adbExePath -s $deviceID tcpip 5555
         
-        Wait-ForAuthorizedDevice
+                # Step 4: Wait for device to reappear
+                $deviceID = Wait-ForAuthorizedDevice
+                if ($deviceID -eq "error" -or -not $deviceID) { throw "Device not found" }
         
-        Show-Message "Connecting ADB to localhost`:5555..."
-        & $adbExePath connect localhost`:5555
+                # Step 5: Forward local port to device port
+                & $adbExePath forward tcp:5555 tcp:5555
         
+                # Step 6: Wait for device again
+                $deviceID = Wait-ForAuthorizedDevice
+                if ($deviceID -eq "error" -or -not $deviceID) { throw "Device not found" }
         
-        # Use the IP:5555 as new device ID going forward
-        $deviceID = "localhost`:5555"
-        Wait-ForAuthorizedDevice -TargetDeviceID $deviceID
-
+                # Step 7: Connect to localhost over TCP/IP
+                Show-Message "Connecting ADB to localhost`:5555..."
+                & $adbExePath connect localhost`:5555
+        
+                # Step 8: Use TCP/IP address as device ID
+                $deviceID = "localhost`:5555"
+                $deviceID = Wait-ForAuthorizedDevice -TargetDeviceID $deviceID
+                if ($deviceID -eq "error" -or -not $deviceID) { throw "Device not found" }
+        
+                # If we reach here, all steps succeeded; exit loop
+                $success = $true
+            }
+            catch {
+                # Something failed; loop will restart
+                Show-Message "An error occurred, retrying the device setup, please unplug and replug your Quest."
+                Start-Sleep 2  # brief pause before retrying
+                $success = $false
+            }
+        
+        } while (-not $success)
 
         Show-Message "Uninstalling currently installed MBF Launcher if it's installed..."
         & $adbExePath -s $deviceID uninstall com.dantheman827.mbflauncher
