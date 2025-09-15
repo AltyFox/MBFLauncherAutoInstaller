@@ -197,7 +197,7 @@ function Wait-ForAuthorizedDevice {
 
     do {
         # Check for timeout
-        if ((Get-Date) - $startTime).TotalSeconds -ge $timeoutSeconds) {
+        if (((Get-Date) - $startTime).TotalSeconds -ge $timeoutSeconds) {
             return "error"  # timed out
         }
 
