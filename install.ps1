@@ -186,7 +186,81 @@ function DownloadFile($url, $targetFile) {
     $responseStream.Dispose()
 }
 
+function Wait-ForAuthorizedDevice {
+    param (
+        [string]$TargetDeviceID  # Optional: wait for a specific device
+    )
 
+    $deviceID = $null
+
+    do {
+        # Get connected devices
+        $result = & $adbExePath devices | Out-String
+        if ($debugging) {
+            $lines = $result -split "`r?`n"
+            if ($lines.Count -gt 1) {
+                foreach ($line in $lines[1..($lines.Count - 1)]) {
+                    if ($line -match '^\s*(\S+)\s+device$') {
+                        $currentID = $matches[1]
+                        if (-not $TargetDeviceID -or $currentID -eq $TargetDeviceID) {
+                            $deviceID = $currentID
+                            break
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            foreach ($line in $result -split "`r?`n") {
+                # Trim whitespace
+                $line = $line.Trim()
+                
+                # If a target device is specified, match its exact ID
+                if ($TargetDeviceID) {
+                    if ($line -match "^$TargetDeviceID\s+device$") {
+                        $deviceID = $TargetDeviceID
+                        break
+                    }
+                }
+                else {
+                    # Otherwise, match any authorized device
+                    if ($line -match '^(\S+)\s+device$') {
+                        $deviceID = $matches[1]
+                        break
+                    }
+                }
+            }
+        }
+
+        # Update progress bar to indeterminate
+        if ($progressBar.Style -ne "Marquee") {
+            $progressBar.Style = "Marquee"
+            $progressBar.MarqueeAnimationSpeed = 30
+            $progressBar.Visible = $true
+        }
+
+        # Keep UI responsive
+        [System.Windows.Forms.Application]::DoEvents()
+
+        # Stop throbber if device found
+        if ($deviceID) {
+            $progressBar.Visible = $false
+            $progressBar.Style = "Continuous"
+        }
+
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 10
+
+        # Exit loop if force-closed
+        if ($global:isForceClosed -eq 1) {
+            Show-Message "Installation process aborted due to application closure."
+            break
+        }
+
+    } while (-not $deviceID)
+
+    return $deviceID
+}
 
 # Main Installation Function
 $startButton.Add_Click({
@@ -348,88 +422,50 @@ $startButton.Add_Click({
                 }
             })
 
-        do {
-
-            $result = & $adbExePath devices | Out-String
-            if ($debugging) {
-                $lines = $result -split "`r`n"
-                if ($lines.Count -gt 1 -and $lines[1] -match '^\s*(\S+)') {
-                    $deviceID = $matches[1]
-                }
-            }
-            else {
-                if ($result -match '(\w{14})\s+device') {
-                    $deviceID = $matches[1]
-                }
-            }      
-            # Update the progress bar to simulate an indeterminate scrolling effect
-            if ($progressBar.Style -ne "Marquee") {
-                $progressBar.Style = "Marquee"
-                $progressBar.MarqueeAnimationSpeed = 30
-                $progressBar.Visible = $true
-            }
-        
-            # Process Windows Forms events to keep UI responsive
-            [System.Windows.Forms.Application]::DoEvents()
-
-            # Remove the throbber when the device is found
-            if ($deviceID) {
-                $progressBar.Visible = $false
-                $progressBar.Style = "Continuous"
-            }
-
-            # Process Windows Forms events to keep UI responsive
-            [System.Windows.Forms.Application]::DoEvents()
-
-            Start-Sleep -Milliseconds 10  # Sleep briefly to prevent CPU hogging
-            # Exit loop if force closed
-            if ( $global:isForceClosed -eq 1) {
-                Show-Message "Installation process aborted due to application closure."
-                break
-            }   
-        
-        } while (-not $deviceID)
+        $deviceID = Wait-ForAuthorizedDevice
     
         Show-Message "Quest device detected and authorized (Device ID: $deviceID)."
     
     
         $throbber.Text = "Preparing Quest device for MBF Launcher installation"
-
-        Show-Message "Getting Quest device IP address..."
-        $ipOutput = & $adbExePath -s $deviceID shell ip addr show wlan0
-        Show-Message
-        $ipAddress = $ipOutput -split '\s+' | Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' }
-
-        if (-not $ipAddress) {
-            Show-Message "❌ Could not determine IP address of Quest device."
-            Show-Message "Echoing commands that would have been used instead, this installation has failed!!!"
-            $adbExePath = "echo adb"
-        }
-
+        
+        & $adbExePath shell input keyevent KEYCODE_WAKEUP
+        Start-Sleep 1
+        
         Show-Message "Switching ADB to TCP/IP mode on port 5555..."
         & $adbExePath -s $deviceID tcpip 5555
-
-        Show-Message "Connecting ADB to $ipAddress:5555..."
-        & $adbExePath connect "$ipAddress:5555"
-
+        
+        Wait-ForAuthorizedDevice
+        
+        # Forward the local (host) port to a device port
+        & $adbExePath forward tcp:5555 tcp:5555
+        
+        Wait-ForAuthorizedDevice
+        
+        Show-Message "Connecting ADB to localhost`:5555..."
+        & $adbExePath connect localhost`:5555
+        
+        
         # Use the IP:5555 as new device ID going forward
-        $deviceID = "$ipAddress:5555"
+        $deviceID = "localhost`:5555"
+        Wait-ForAuthorizedDevice -TargetDeviceID $deviceID
+
 
         Show-Message "Uninstalling currently installed MBF Launcher if it's installed..."
         & $adbExePath -s $deviceID uninstall com.dantheman827.mbflauncher
 
-        Log-Message "Installing APK onto Quest device..."
-   		& $adbExePath -s $deviceID install $apkPath
-    	Log-Message "APK installed successfully!"
+        Show-Message "Installing APK onto Quest device... DO NOT UNPLUG YOUR HEADSET UNTIL FINISHED!"
+        & $adbExePath -s $deviceID install $apkPath
+        Show-Message "APK installed successfully!"
 
-    	Log-Message "Granting necessary permissions to the MBF Launcher..."
-    	& $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.WRITE_SECURE_SETTINGS
-    	& $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.READ_LOGS
-    	Log-Message "Permissions granted successfully."
+        Show-Message "Granting necessary permissions to the MBF Launcher..."
+        & $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.WRITE_SECURE_SETTINGS
+        & $adbExePath -s $deviceID shell pm grant com.dantheman827.mbflauncher android.permission.READ_LOGS
+        Show-Message "Permissions granted successfully."
 
-    	Log-Message "Launching MBF Launcher on Quest device..."
-    	& $adbExePath -s $deviceID shell monkey -p com.dantheman827.mbflauncher 1 *> $null
-   		Log-Message "MBF Launcher started on device."
+        Show-Message "Launching MBF Launcher on Quest device..."
+        & $adbExePath -s $deviceID shell monkey -p com.dantheman827.mbflauncher 1 *> $null
+           Show-Message "MBF Launcher started on device."
 
         $throbber.Text = "Finishing up..."
         Show-Message "Stopping ADB server..."
@@ -443,9 +479,11 @@ $startButton.Add_Click({
         Show-Message "Installation process completed!"
         Show-Message "If you need help, ask in #quest-standalone-help in BSMG. Join the Discord at: http://discord.gg/beatsabermods"
         Show-Message "You may also DM @alteran for assistance."
+        
         Show-Message "MBF Launcher should be active and running on your headset now."
         Show-Message "You will see more ADB authorization prompts in the headset, please accept them."
         Show-Message "You can now close this window."
+        
 
         $throbber.Text = ""
 
